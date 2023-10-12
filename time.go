@@ -2,7 +2,6 @@ package locale
 
 import (
 	"bytes"
-	"database/sql/driver"
 	"fmt"
 	"log"
 	"strconv"
@@ -13,101 +12,120 @@ import (
 	parseStrconv "github.com/tdewolff/parse/v2/strconv"
 )
 
-var NullTime = time.Date(0, 0, 0, 0, 0, 0, 0, time.UTC)
-
-type Date time.Time
-
-func (t Date) String() string {
-	return time.Time(t).Format("2006-01-02")
-}
-
-func (t *Date) Scan(isrc interface{}) error {
-	if err := scanTime((*time.Time)(t), isrc); err != nil {
-		return err
-	}
-	*t = Date((*time.Time)(t).Truncate(24 * time.Hour))
-	return nil
-}
-
-func (t Date) Value() (driver.Value, error) {
-	return t.String(), nil
-}
-
-type Time time.Time
-
-func (t Time) String() string {
-	format := "15:04"
-	if time.Time(t).Nanosecond() != 0 {
-		format = "15:04:05.999999999"
-	} else if time.Time(t).Second() != 0 {
-		format = "15:04:05"
-	}
-	return time.Time(t).Format(format)
-}
-
-func (t *Time) Scan(isrc interface{}) error {
-	if err := scanTime((*time.Time)(t), isrc); err != nil {
-		return err
-	}
-	d := (*time.Time)(t)
-	*t = Time(time.Date(1, 1, 1, d.Hour(), d.Minute(), d.Second(), d.Nanosecond(), d.Location()))
-	return nil
-}
-
-func (t Time) Value() (driver.Value, error) {
-	return t.String(), nil
-}
-
-type Datetime time.Time
-
-func (t Datetime) String() string {
-	format := "2006-01-02 15:04"
-	if time.Time(t).Nanosecond() != 0 {
-		format = "2006-01-02 15:04:05.999999999"
-	} else if time.Time(t).Second() != 0 {
-		format = "2006-01-02 15:04:05"
-	}
-	return time.Time(t).Format(format)
-}
-
-func (t *Datetime) Scan(isrc interface{}) error {
-	if err := scanTime((*time.Time)(t), isrc); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (t Datetime) Value() (driver.Value, error) {
-	return t.String(), nil
-}
-
-type Duration time.Duration
-
-func (d Duration) String() string {
-	var format string
-	if time.Duration(d) < 0 {
-		d = -d
-		format = "-"
-	}
-	if time.Duration(d) < 24*time.Hour {
-		format += "2006-01-02 "
-	}
-	format += "15:04"
-	if time.Duration(d).Nanoseconds() != 0 {
-		format += "15:04:05.999999999"
-	} else if time.Duration(d).Seconds() != 0 {
-		format += "15:04:05"
-	}
-	return NullTime.Add(time.Duration(d)).Format(format)
-}
-
-func (d *Duration) Scan(isrc interface{}) error {
-	return scanTime((*time.Duration)(d), isrc)
-}
-
-func (d Duration) Value() (driver.Value, error) {
-	return d.String(), nil
-}
+//type NullDate struct {
+//	Date  Date
+//	Valid bool
+//}
+//
+//func (t *NullDate) Scan(isrc interface{}) error {
+//	if isrc == nil {
+//		t.Date, t.Valid = Date{}, false
+//		return nil
+//	}
+//	t.Valid = true
+//	return t.Date.Scan(isrc)
+//}
+//
+//func (t NullDate) Value() (driver.Value, error) {
+//	if !t.Valid {
+//		return nil, nil
+//	}
+//	return t.Date.Value()
+//}
+//
+//type Date time.Time
+//
+//func (t Date) String() string {
+//	return time.Time(t).Format("2006-01-02")
+//}
+//
+//func (t *Date) Scan(isrc interface{}) error {
+//	if err := scanTime((*time.Time)(t), isrc); err != nil {
+//		return err
+//	}
+//	*t = Date((*time.Time)(t).Truncate(24 * time.Hour))
+//	return nil
+//}
+//
+//func (t Date) Value() (driver.Value, error) {
+//	return t.String(), nil
+//}
+//
+//type Time time.Time
+//
+//func (t Time) String() string {
+//	format := "15:04"
+//	if time.Time(t).Nanosecond() != 0 {
+//		format = "15:04:05.999999999"
+//	} else if time.Time(t).Second() != 0 {
+//		format = "15:04:05"
+//	}
+//	return time.Time(t).Format(format)
+//}
+//
+//func (t *Time) Scan(isrc interface{}) error {
+//	if err := scanTime((*time.Time)(t), isrc); err != nil {
+//		return err
+//	}
+//	d := (*time.Time)(t)
+//	*t = Time(time.Date(1, 1, 1, d.Hour(), d.Minute(), d.Second(), d.Nanosecond(), d.Location()))
+//	return nil
+//}
+//
+//func (t Time) Value() (driver.Value, error) {
+//	return t.String(), nil
+//}
+//
+//type Datetime time.Time
+//
+//func (t Datetime) String() string {
+//	format := "2006-01-02 15:04"
+//	if time.Time(t).Nanosecond() != 0 {
+//		format = "2006-01-02 15:04:05.999999999"
+//	} else if time.Time(t).Second() != 0 {
+//		format = "2006-01-02 15:04:05"
+//	}
+//	return time.Time(t).Format(format)
+//}
+//
+//func (t *Datetime) Scan(isrc interface{}) error {
+//	if err := scanTime((*time.Time)(t), isrc); err != nil {
+//		return err
+//	}
+//	return nil
+//}
+//
+//func (t Datetime) Value() (driver.Value, error) {
+//	return t.String(), nil
+//}
+//
+//type Duration time.Duration
+//
+//func (d Duration) String() string {
+//	var format string
+//	if time.Duration(d) < 0 {
+//		d = -d
+//		format = "-"
+//	}
+//	if time.Duration(d) < 24*time.Hour {
+//		format += "2006-01-02 "
+//	}
+//	format += "15:04"
+//	if time.Duration(d).Nanoseconds() != 0 {
+//		format += "15:04:05.999999999"
+//	} else if time.Duration(d).Seconds() != 0 {
+//		format += "15:04:05"
+//	}
+//	return ZeroTime.Add(time.Duration(d)).Format(format)
+//}
+//
+//func (d *Duration) Scan(isrc interface{}) error {
+//	return scanTime((*time.Duration)(d), isrc)
+//}
+//
+//func (d Duration) Value() (driver.Value, error) {
+//	return d.String(), nil
+//}
 
 // Available time layouts, otherwise falls back to time.Time.Format and translates the individual parts. The order and punctuation may not be in accordance with locale in that case. You can combine any date with time layout by concatenation: {date} + space + {time}
 const (
@@ -123,7 +141,7 @@ const (
 
 type TimeFormatter struct {
 	time.Time
-	layout string
+	Layout string
 }
 
 func translateGoTime(locale Locale, t time.Time, layout string) []byte {
@@ -171,29 +189,29 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 
 	idxSep := -1
 	var datePattern string
-	if strings.HasPrefix(f.layout, DateFull) {
+	if strings.HasPrefix(f.Layout, DateFull) {
 		datePattern = locale.DateFormat.Full
 		idxSep = len(DateFull)
-	} else if strings.HasPrefix(f.layout, DateLong) {
+	} else if strings.HasPrefix(f.Layout, DateLong) {
 		datePattern = locale.DateFormat.Long
 		idxSep = len(DateLong)
-	} else if strings.HasPrefix(f.layout, DateMedium) {
+	} else if strings.HasPrefix(f.Layout, DateMedium) {
 		datePattern = locale.DateFormat.Medium
 		idxSep = len(DateMedium)
-	} else if strings.HasPrefix(f.layout, DateShort) {
+	} else if strings.HasPrefix(f.Layout, DateShort) {
 		datePattern = locale.DateFormat.Short
 		idxSep = len(DateShort)
 	}
 
 	var timePattern string
-	if idxSep < len(f.layout) {
+	if idxSep < len(f.Layout) {
 		if idxSep != -1 {
-			if f.layout[idxSep] != ' ' {
-				state.Write(translateGoTime(locale, f.Time, f.layout))
+			if f.Layout[idxSep] != ' ' {
+				state.Write(translateGoTime(locale, f.Time, f.Layout))
 				return
 			}
 		}
-		switch f.layout[idxSep+1:] {
+		switch f.Layout[idxSep+1:] {
 		case TimeFull:
 			timePattern = locale.TimeFormat.Full
 		case TimeLong:
@@ -203,14 +221,14 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 		case TimeShort:
 			timePattern = locale.TimeFormat.Short
 		default:
-			state.Write(translateGoTime(locale, f.Time, f.layout))
+			state.Write(translateGoTime(locale, f.Time, f.Layout))
 			return
 		}
 	}
 
 	var pattern string
 	if datePattern != "" && timePattern != "" {
-		switch f.layout[:idxSep] {
+		switch f.Layout[:idxSep] {
 		case DateFull:
 			pattern = locale.DatetimeFormat.Full
 		case DateLong:
@@ -310,7 +328,7 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 			default:
 				log.Printf("INFO: unsupported CLDR date/time format: %v\n", pattern[i:j])
 			}
-			i += n - 1
+			i = j - 1
 		case '\'':
 			j := i + 1
 			for j < len(pattern) {
@@ -330,57 +348,26 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 }
 
 // scanTime from database
-func scanTime(idst interface{}, isrc interface{}) error {
+func scanTime(t *time.Time, isrc interface{}) error {
 	var b []byte
-	var name string
-	var t *time.Time
-	var d *time.Duration
-	switch dst := idst.(type) {
-	case *time.Time:
-		switch src := isrc.(type) {
-		case time.Time:
-			*dst = src
-			return nil
-		case int64:
-			*dst = time.Unix(src, 0)
-			return nil
-		case string:
-			b = []byte(src)
-		case []byte:
-			b = src
-		default:
-			return fmt.Errorf("incompatible type for time.Time: %T", isrc)
-		}
-		name = "time"
-		t = dst
-	case *time.Duration:
-		switch src := isrc.(type) {
-		case time.Duration:
-			*dst = src
-			return nil
-		case int64:
-			*dst = time.Duration(src) * time.Second
-			return nil
-		case string:
-			b = []byte(src)
-		case []byte:
-			b = src
-		default:
-			return fmt.Errorf("incompatible type for time.Duration: %T", isrc)
-		}
-		name = "duration"
-		d = dst
+	switch src := isrc.(type) {
+	case time.Time:
+		*t = src
+		return nil
+	case int64:
+		*t = time.Unix(src, 0)
+		return nil
+	case string:
+		b = []byte(src)
+	case []byte:
+		b = src
 	default:
-		return fmt.Errorf("incompatible destination type: %T", idst)
+		return fmt.Errorf("incompatible type for time.Time: %T", isrc)
 	}
 
-	neg := false
-	if d == nil && bytes.Equal(b, []byte("now")) {
+	if bytes.Equal(b, []byte("now")) {
 		*t = time.Now().UTC()
 		return nil
-	} else if d != nil && 0 < len(b) && (b[0] == '+' || b[0] == '-') {
-		neg = b[0] == '-'
-		b = b[1:]
 	}
 
 	var year, month, day, hours, minutes, seconds uint64
@@ -389,7 +376,7 @@ func scanTime(idst interface{}, isrc interface{}) error {
 
 	first, n := parseStrconv.ParseUint(b)
 	if n == 0 {
-		return fmt.Errorf("invalid %s", name)
+		return fmt.Errorf("invalid time")
 	}
 	b = b[n:]
 
@@ -397,16 +384,9 @@ func scanTime(idst interface{}, isrc interface{}) error {
 		seconds = first
 		fseconds, n = parseStrconv.ParseFloat(b)
 		if n != len(b) {
-			return fmt.Errorf("invalid %s", name)
+			return fmt.Errorf("invalid time")
 		}
-		if d == nil {
-			*t = time.Unix(int64(seconds), int64(fseconds*1e9+0.5))
-		} else {
-			*d = time.Duration(seconds)*time.Second + time.Duration(fseconds*1e9+0.5)*time.Nanosecond
-			if neg {
-				*d = -*d
-			}
-		}
+		*t = time.Unix(int64(seconds), int64(fseconds*1e9+0.5))
 		return nil
 	}
 
@@ -417,7 +397,7 @@ func scanTime(idst interface{}, isrc interface{}) error {
 		}
 
 		if len(b) == 0 || b[0] != '-' {
-			return fmt.Errorf("invalid %s", name)
+			return fmt.Errorf("invalid time")
 		}
 		b = b[1:]
 		month, n = parseStrconv.ParseUint(b)
@@ -427,7 +407,7 @@ func scanTime(idst interface{}, isrc interface{}) error {
 		b = b[n:]
 
 		if len(b) == 0 || b[0] != '-' {
-			return fmt.Errorf("invalid %s", name)
+			return fmt.Errorf("invalid time")
 		}
 		b = b[1:]
 		day, n = parseStrconv.ParseUint(b)
@@ -440,7 +420,7 @@ func scanTime(idst interface{}, isrc interface{}) error {
 			*t = time.Date(int(year), time.Month(month), int(day), 0, 0, 0, 0, time.UTC)
 			return nil
 		} else if b[0] != ' ' && b[0] != 'T' {
-			return fmt.Errorf("invalid %s", name)
+			return fmt.Errorf("invalid time")
 		}
 		b = b[1:]
 
@@ -454,7 +434,7 @@ func scanTime(idst interface{}, isrc interface{}) error {
 	}
 
 	if len(b) == 0 || b[0] != ':' {
-		return fmt.Errorf("invalid %s", name)
+		return fmt.Errorf("invalid time")
 	}
 	b = b[1:]
 	minutes, n = parseStrconv.ParseUint(b)
@@ -465,7 +445,7 @@ func scanTime(idst interface{}, isrc interface{}) error {
 
 	if len(b) != 0 {
 		if b[0] != ':' {
-			return fmt.Errorf("invalid %s", name)
+			return fmt.Errorf("invalid time")
 		}
 		b = b[1:]
 		seconds, n = parseStrconv.ParseUint(b)
@@ -481,17 +461,9 @@ func scanTime(idst interface{}, isrc interface{}) error {
 	}
 
 	if len(b) != 0 {
-		return fmt.Errorf("invalid %s", name)
+		return fmt.Errorf("invalid time")
 	}
 
-	date := time.Date(int(year), time.Month(month), int(day), int(hours), int(minutes), int(seconds), int(fseconds*1e9+0.5), time.UTC)
-	if d == nil {
-		*t = date
-	} else {
-		*d = date.Sub(time.Time{})
-		if neg {
-			*d = -*d
-		}
-	}
+	*t = time.Date(int(year), time.Month(month), int(day), int(hours), int(minutes), int(seconds), int(fseconds*1e9+0.5), time.UTC)
 	return nil
 }

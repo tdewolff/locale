@@ -224,7 +224,7 @@ const (
 
 type AmountFormatter struct {
 	Amount
-	layout string
+	Layout string
 }
 
 func (f AmountFormatter) Format(state fmt.State, verb rune) {
@@ -232,11 +232,11 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 	if languager, ok := state.(Languager); ok {
 		localeName = ToLocaleName(languager.Language())
 	}
+	locale := GetLocale(localeName)
 
 	unit := f.Unit.String()
-	locale := GetLocale(localeName)
 	var symbol, pattern string
-	switch f.layout {
+	switch f.Layout {
 	case CurrencyISO:
 		symbol = unit
 		pattern = locale.CurrencyFormat.ISO

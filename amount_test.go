@@ -30,3 +30,19 @@ func TestCurrency(t *testing.T) {
 		})
 	}
 }
+
+func TestAmountRound(t *testing.T) {
+	tests := []struct {
+		a Amount
+		r Amount
+	}{
+		{},
+	}
+	for _, tt := range tests {
+		t.Run(tt.a.String(), func(t *testing.T) {
+			a := tt.a
+			a.Round()
+			test.T(t, a, tt.r)
+		})
+	}
+}

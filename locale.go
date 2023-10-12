@@ -20,16 +20,10 @@ func (printer *Printer) T(a ...interface{}) string {
 			// TODO: handle numbers
 			case time.Time:
 				return p.Sprintf("%v", TimeFormatter{v, layout})
-			case Date:
-				return p.Sprintf("%v", TimeFormatter{time.Time(v), layout})
-			case Time:
-				return p.Sprintf("%v", TimeFormatter{time.Time(v), layout})
-			case Datetime:
-				return p.Sprintf("%v", TimeFormatter{time.Time(v), layout})
 			case time.Duration:
-				return p.Sprintf("%v", TimeFormatter{NullTime.Add(v), layout})
+				return p.Sprintf("%v", DurationFormatter{Duration(v), layout})
 			case Duration:
-				return p.Sprintf("%v", TimeFormatter{NullTime.Add(time.Duration(v)), layout})
+				return p.Sprintf("%v", DurationFormatter{v, layout})
 			case Amount:
 				return p.Sprintf("%v", AmountFormatter{v, layout})
 			}

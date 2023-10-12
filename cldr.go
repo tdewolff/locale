@@ -25,6 +25,17 @@ type CalendarSymbol struct {
     Narrow      string
 }
 
+type Count struct {
+    One   string
+    Other string
+}
+
+type Unit struct {
+    Long   Count
+    Short  Count
+    Narrow Count
+}
+
 type Locale struct {
     CurrencyFormat        CurrencyFormat
     DateFormat            CalendarFormat
@@ -41,6 +52,7 @@ type Locale struct {
     MonthSymbol           [12]CalendarSymbol
     DaySymbol             [7]CalendarSymbol
     DayPeriodSymbol       [2]CalendarSymbol
+    Unit                  map[string]Unit
 }
 
 type Currency struct {
@@ -240,6 +252,20 @@ var locales = map[string]Locale{
     }, [2]CalendarSymbol{
         {"am", "am", ""},
         {"pm", "pm", ""},
+    }, map[string]Unit{
+        "duration-century": {Count{"{0} siglo", "{0} siglos"}, Count{"{0} s.", "{0} s."}, Count{"{0}s", "{0}s"}},
+        "duration-day": {Count{"{0} día", "{0} días"}, Count{"{0} d.", "{0} dd."}, Count{"{0}d.", "{0}dd."}},
+        "duration-decade": {Count{"{0} década", "{0} décadas"}, Count{"{0} déc.", "{0} déc."}, Count{"{0}déc", "{0}déc"}},
+        "duration-hour": {Count{"{0} hora", "{0} horas"}, Count{"{0} h", "{0} h"}, Count{"{0}h", "{0}h"}},
+        "duration-microsecond": {Count{"{0} microsegundo", "{0} microsegundos"}, Count{"{0} μs", "{0} μs"}, Count{"{0}μs", "{0}μs"}},
+        "duration-millisecond": {Count{"{0} milisegundo", "{0} milisegundos"}, Count{"{0} ms", "{0} ms"}, Count{"{0}ms", "{0}ms"}},
+        "duration-minute": {Count{"{0} minuto", "{0} minutos"}, Count{"{0} min", "{0} min"}, Count{"{0}m", "{0}m"}},
+        "duration-month": {Count{"{0} mes", "{0} meses"}, Count{"{0} m.", "{0} mm."}, Count{"{0}m.", "{0}mm."}},
+        "duration-nanosecond": {Count{"{0} nanosegundo", "{0} nanosegundos"}, Count{"{0} ns", "{0} ns"}, Count{"{0}ns", "{0}ns"}},
+        "duration-quarter": {Count{"{0} trimestre", "{0} trimestres"}, Count{"{0} trim.", "{0} trim."}, Count{"{0}/trim", "{0}/trim"}},
+        "duration-second": {Count{"{0} segundo", "{0} segundos"}, Count{"{0} s", "{0} s"}, Count{"{0}s", "{0}s"}},
+        "duration-week": {Count{"{0} semana", "{0} semanas"}, Count{"{0} sem.", "{0} sems."}, Count{"{0}sem.", "{0}sems."}},
+        "duration-year": {Count{"{0} año", "{0} años"}, Count{"{0} a.", "{0} aa."}, Count{"{0}a.", "{0}aa."}},
     }},
     "es": {CurrencyFormat{"#,##0.00 ¤", "#,##0.00", "#,##0.00 ¤"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "d MMM y", "d/M/yy"}, CalendarFormat{"H:mm:ss (zzzz)", "H:mm:ss z", "H:mm:ss", "H:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1}, {0}", "{1}, {0}"}, map[string]CurrencySymbol{
         "AED": {"AED", ""},
@@ -430,6 +456,20 @@ var locales = map[string]Locale{
     }, [2]CalendarSymbol{
         {"a. m.", "a. m.", "a. m."},
         {"p. m.", "p. m.", "p. m."},
+    }, map[string]Unit{
+        "duration-century": {Count{"{0} siglo", "{0} siglos"}, Count{"{0} s.", "{0} s."}, Count{"{0}s", "{0}s"}},
+        "duration-day": {Count{"{0} día", "{0} días"}, Count{"{0} d.", "{0} dd."}, Count{"{0}d.", "{0}dd."}},
+        "duration-decade": {Count{"{0} década", "{0} décadas"}, Count{"{0} déc.", "{0} déc."}, Count{"{0}déc", "{0}déc"}},
+        "duration-hour": {Count{"{0} hora", "{0} horas"}, Count{"{0} h", "{0} h"}, Count{"{0}h", "{0}h"}},
+        "duration-microsecond": {Count{"{0} microsegundo", "{0} microsegundos"}, Count{"{0} μs", "{0} μs"}, Count{"{0}μs", "{0}μs"}},
+        "duration-millisecond": {Count{"{0} milisegundo", "{0} milisegundos"}, Count{"{0} ms", "{0} ms"}, Count{"{0}ms", "{0}ms"}},
+        "duration-minute": {Count{"{0} minuto", "{0} minutos"}, Count{"{0} min", "{0} min"}, Count{"{0}m", "{0}m"}},
+        "duration-month": {Count{"{0} mes", "{0} meses"}, Count{"{0} m.", "{0} mm."}, Count{"{0}m.", "{0}mm."}},
+        "duration-nanosecond": {Count{"{0} nanosegundo", "{0} nanosegundos"}, Count{"{0} ns", "{0} ns"}, Count{"{0}ns", "{0}ns"}},
+        "duration-quarter": {Count{"{0} trimestre", "{0} trimestres"}, Count{"{0} trim.", "{0} trim."}, Count{"{0}/trim", "{0}/trim"}},
+        "duration-second": {Count{"{0} segundo", "{0} segundos"}, Count{"{0} s", "{0} s"}, Count{"{0}s", "{0}s"}},
+        "duration-week": {Count{"{0} semana", "{0} semanas"}, Count{"{0} sem.", "{0} sems."}, Count{"{0}sem.", "{0}sems."}},
+        "duration-year": {Count{"{0} año", "{0} años"}, Count{"{0} a.", "{0} aa."}, Count{"{0}a.", "{0}aa."}},
     }},
     "es_419": {CurrencyFormat{"¤#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "d MMM y", "d/M/yy"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1} {0}", "{1}, {0}"}, map[string]CurrencySymbol{
         "AED": {"AED", ""},
@@ -620,6 +660,20 @@ var locales = map[string]Locale{
     }, [2]CalendarSymbol{
         {"a. m.", "a. m.", "a. m."},
         {"p. m.", "p. m.", "p. m."},
+    }, map[string]Unit{
+        "duration-century": {Count{"{0} siglo", "{0} siglos"}, Count{"{0} s.", "{0} s."}, Count{"{0}s", "{0}s"}},
+        "duration-day": {Count{"{0} día", "{0} días"}, Count{"{0} d.", "{0} dd."}, Count{"{0}d.", "{0}dd."}},
+        "duration-decade": {Count{"{0} década", "{0} décadas"}, Count{"{0} déc.", "{0} déc."}, Count{"{0}déc", "{0}déc"}},
+        "duration-hour": {Count{"{0} hora", "{0} horas"}, Count{"{0} h", "{0} h"}, Count{"{0}h", "{0}h"}},
+        "duration-microsecond": {Count{"{0} microsegundo", "{0} microsegundos"}, Count{"{0} μs", "{0} μs"}, Count{"{0}μs", "{0}μs"}},
+        "duration-millisecond": {Count{"{0} milisegundo", "{0} milisegundos"}, Count{"{0} ms", "{0} ms"}, Count{"{0}ms", "{0}ms"}},
+        "duration-minute": {Count{"{0} minuto", "{0} minutos"}, Count{"{0} min", "{0} min"}, Count{"{0}m", "{0}m"}},
+        "duration-month": {Count{"{0} mes", "{0} meses"}, Count{"{0} m.", "{0} mm."}, Count{"{0}m.", "{0}mm."}},
+        "duration-nanosecond": {Count{"{0} nanosegundo", "{0} nanosegundos"}, Count{"{0} ns", "{0} ns"}, Count{"{0}ns", "{0}ns"}},
+        "duration-quarter": {Count{"{0} trimestre", "{0} trimestres"}, Count{"{0} trim.", "{0} trim."}, Count{"{0}/trim", "{0}/trim"}},
+        "duration-second": {Count{"{0} segundo", "{0} segundos"}, Count{"{0} s", "{0} s"}, Count{"{0}s", "{0}s"}},
+        "duration-week": {Count{"{0} semana", "{0} semanas"}, Count{"{0} sem.", "{0} sems."}, Count{"{0}sem.", "{0}sems."}},
+        "duration-year": {Count{"{0} año", "{0} años"}, Count{"{0} a.", "{0} aa."}, Count{"{0}a.", "{0}aa."}},
     }},
     "es_CL": {CurrencyFormat{"¤#,##0.00;¤-#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "dd-MM-y", "dd-MM-yy"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1} {0}", "{1}, {0}"}, map[string]CurrencySymbol{
         "AED": {"AED", ""},
@@ -810,6 +864,20 @@ var locales = map[string]Locale{
     }, [2]CalendarSymbol{
         {"a. m.", "a. m.", "a. m."},
         {"p. m.", "p. m.", "p. m."},
+    }, map[string]Unit{
+        "duration-century": {Count{"{0} siglo", "{0} siglos"}, Count{"{0} s.", "{0} s."}, Count{"{0}s", "{0}s"}},
+        "duration-day": {Count{"{0} día", "{0} días"}, Count{"{0} d.", "{0} dd."}, Count{"{0}d.", "{0}dd."}},
+        "duration-decade": {Count{"{0} década", "{0} décadas"}, Count{"{0} déc.", "{0} déc."}, Count{"{0}déc", "{0}déc"}},
+        "duration-hour": {Count{"{0} hora", "{0} horas"}, Count{"{0} h", "{0} h"}, Count{"{0}h", "{0}h"}},
+        "duration-microsecond": {Count{"{0} microsegundo", "{0} microsegundos"}, Count{"{0} μs", "{0} μs"}, Count{"{0}μs", "{0}μs"}},
+        "duration-millisecond": {Count{"{0} milisegundo", "{0} milisegundos"}, Count{"{0} ms", "{0} ms"}, Count{"{0}ms", "{0}ms"}},
+        "duration-minute": {Count{"{0} minuto", "{0} minutos"}, Count{"{0} min", "{0} min"}, Count{"{0}m", "{0}m"}},
+        "duration-month": {Count{"{0} mes", "{0} meses"}, Count{"{0} m.", "{0} mm."}, Count{"{0}m.", "{0}mm."}},
+        "duration-nanosecond": {Count{"{0} nanosegundo", "{0} nanosegundos"}, Count{"{0} ns", "{0} ns"}, Count{"{0}ns", "{0}ns"}},
+        "duration-quarter": {Count{"{0} trimestre", "{0} trimestres"}, Count{"{0} trim.", "{0} trim."}, Count{"{0}/trim", "{0}/trim"}},
+        "duration-second": {Count{"{0} segundo", "{0} segundos"}, Count{"{0} s", "{0} s"}, Count{"{0}s", "{0}s"}},
+        "duration-week": {Count{"{0} semana", "{0} semanas"}, Count{"{0} sem.", "{0} sems."}, Count{"{0}sem.", "{0}sems."}},
+        "duration-year": {Count{"{0} año", "{0} años"}, Count{"{0} a.", "{0} aa."}, Count{"{0}a.", "{0}aa."}},
     }},
     "root": {CurrencyFormat{"¤ #,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"y MMMM d, EEEE", "y MMMM d", "y MMM d", "y-MM-dd"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1} {0}", "{1} {0}", "{1} {0}", "{1} {0}"}, map[string]CurrencySymbol{
         "AED": {"AED", ""},
@@ -1000,6 +1068,20 @@ var locales = map[string]Locale{
     }, [2]CalendarSymbol{
         {"", "AM", ""},
         {"", "PM", ""},
+    }, map[string]Unit{
+        "duration-century": {Count{"{0} siglo", "{0} siglos"}, Count{"{0} s.", "{0} s."}, Count{"{0}s", "{0}s"}},
+        "duration-day": {Count{"{0} día", "{0} días"}, Count{"{0} d.", "{0} dd."}, Count{"{0}d.", "{0}dd."}},
+        "duration-decade": {Count{"{0} década", "{0} décadas"}, Count{"{0} déc.", "{0} déc."}, Count{"{0}déc", "{0}déc"}},
+        "duration-hour": {Count{"{0} hora", "{0} horas"}, Count{"{0} h", "{0} h"}, Count{"{0}h", "{0}h"}},
+        "duration-microsecond": {Count{"{0} microsegundo", "{0} microsegundos"}, Count{"{0} μs", "{0} μs"}, Count{"{0}μs", "{0}μs"}},
+        "duration-millisecond": {Count{"{0} milisegundo", "{0} milisegundos"}, Count{"{0} ms", "{0} ms"}, Count{"{0}ms", "{0}ms"}},
+        "duration-minute": {Count{"{0} minuto", "{0} minutos"}, Count{"{0} min", "{0} min"}, Count{"{0}m", "{0}m"}},
+        "duration-month": {Count{"{0} mes", "{0} meses"}, Count{"{0} m.", "{0} mm."}, Count{"{0}m.", "{0}mm."}},
+        "duration-nanosecond": {Count{"{0} nanosegundo", "{0} nanosegundos"}, Count{"{0} ns", "{0} ns"}, Count{"{0}ns", "{0}ns"}},
+        "duration-quarter": {Count{"{0} trimestre", "{0} trimestres"}, Count{"{0} trim.", "{0} trim."}, Count{"{0}/trim", "{0}/trim"}},
+        "duration-second": {Count{"{0} segundo", "{0} segundos"}, Count{"{0} s", "{0} s"}, Count{"{0}s", "{0}s"}},
+        "duration-week": {Count{"{0} semana", "{0} semanas"}, Count{"{0} sem.", "{0} sems."}, Count{"{0}sem.", "{0}sems."}},
+        "duration-year": {Count{"{0} año", "{0} años"}, Count{"{0} a.", "{0} aa."}, Count{"{0}a.", "{0}aa."}},
     }},
 }
 
