@@ -17,12 +17,19 @@ func (printer *Printer) T(a ...interface{}) string {
 	} else if len(a) == 2 {
 		if layout, ok := a[1].(string); ok {
 			switch v := a[0].(type) {
+			// TODO: handle numbers
 			case time.Time:
 				return p.Sprintf("%v", TimeFormatter{v, layout})
+			case Date:
+				return p.Sprintf("%v", TimeFormatter{time.Time(v), layout})
+			case Time:
+				return p.Sprintf("%v", TimeFormatter{time.Time(v), layout})
+			case Datetime:
+				return p.Sprintf("%v", TimeFormatter{time.Time(v), layout})
 			case time.Duration:
-				return p.Sprintf("%v", TimeFormatter{(time.Time{}).Add(v), layout})
-			//case Duration:
-			//	return p.Sprintf("%v", TimeFormatter{(time.Time{}).Add(time.Duration(v)), layout})
+				return p.Sprintf("%v", TimeFormatter{NullTime.Add(v), layout})
+			case Duration:
+				return p.Sprintf("%v", TimeFormatter{NullTime.Add(time.Duration(v)), layout})
 			case Amount:
 				return p.Sprintf("%v", AmountFormatter{v, layout})
 			}
