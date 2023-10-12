@@ -183,6 +183,9 @@ func (a Amount) String() string {
 func (a *Amount) Scan(isrc interface{}) error {
 	var b []byte
 	switch src := isrc.(type) {
+	case Amount:
+		*a = src
+		return nil
 	case []byte:
 		b = src
 	case string:
@@ -210,12 +213,19 @@ func (a Amount) Value() (driver.Value, error) {
 	return a.String(), nil
 }
 
+// Available currency formats
+// TODO: support accounting formats?
+const (
+	CurrencyAmount   string = "100"
+	CurrencyISO             = "USD 100"
+	CurrencyStandard        = "US$ 100"
+	CurrencyNarrow          = "$100"
+)
+
 type AmountFormatter struct {
 	Amount
-	symbol string // "", "USD", "$", "US$"
+	layout string
 }
-
-var amountBuffer []byte
 
 func (f AmountFormatter) Format(state fmt.State, verb rune) {
 	localeName := "root"
@@ -225,14 +235,13 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 
 	unit := f.Unit.String()
 	locale := GetLocale(localeName)
-
 	var symbol, pattern string
-	switch f.symbol {
-	case "$":
-		symbol = locale.CurrencySymbols[unit].Narrow
-		pattern = locale.CurrencyFormat
-	case "US$":
-		symbol = locale.CurrencySymbols[unit].Standard
+	switch f.layout {
+	case CurrencyISO:
+		symbol = unit
+		pattern = locale.CurrencyFormat.ISO
+	case CurrencyStandard:
+		symbol = locale.CurrencySymbol[unit].Standard
 		hasLetter := false
 		for _, r := range symbol {
 			if unicode.IsLetter(r) {
@@ -241,17 +250,17 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 			}
 		}
 		if hasLetter {
-			pattern = locale.CurrencyISOFormat
+			pattern = locale.CurrencyFormat.ISO
 		} else {
-			pattern = locale.CurrencyFormat
+			pattern = locale.CurrencyFormat.Standard
 		}
-	case "USD":
-		symbol = unit
-		pattern = locale.CurrencyISOFormat
+	case CurrencyNarrow:
+		symbol = locale.CurrencySymbol[unit].Narrow
+		pattern = locale.CurrencyFormat.Standard
 	default:
 	}
 	if symbol == "" {
-		pattern = locale.CurrencyAmountFormat
+		pattern = locale.CurrencyFormat.Amount
 	}
 
 	if idx := strings.IndexByte(pattern, ';'); idx != -1 {
@@ -267,48 +276,56 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 	dec := f.digits
 	amount := a.amount / int64Scales[AmountPrecision]
 
-	i := 0
-	amountBuffer = amountBuffer[:0]
-	for i < len(pattern) {
+	var b []byte
+	for i := 0; i < len(pattern); {
 		r, n := utf8.DecodeRuneInString(pattern[i:])
-		i += n
-
 		switch r {
 		// TODO: handle negative amounts
 		case '¤':
-			amountBuffer = append(amountBuffer, symbol...)
+			b = append(b, symbol...)
 		case '0', '#':
+			j := i + 1
 			group, decimal := -1, -1
-			for i < len(pattern) {
-				switch pattern[i] {
+			for j < len(pattern) {
+				switch pattern[j] {
 				case '.':
 					if decimal != -1 {
 						break
 					}
-					decimal = i
+					decimal = j
 				case ',':
 					if decimal != -1 {
 						break
 					}
-					group = i
+					group = j
 				default:
 					break
 				}
-				i++
+				j++
 			}
 
 			groupSize := 3
 			if decimal != -1 && group != -1 {
 				groupSize = decimal - group
 			}
-			amountBuffer = strconv.AppendPrice(amountBuffer, amount, dec, groupSize, locale.GroupSymbol, locale.DecimalSymbol)
+			b = strconv.AppendPrice(b, amount, dec, groupSize, locale.GroupSymbol, locale.DecimalSymbol)
+			i = j - 1
 		case ' ':
-			amountBuffer = utf8.AppendRune(amountBuffer, '\u00A0') // non-breaking space
+			b = utf8.AppendRune(b, '\u00A0') // non-breaking space
 		case '\'':
-			// remove
+			j := i + 1
+			for j < len(pattern) {
+				if pattern[j] == '\'' {
+					break
+				}
+				j++
+			}
+			b = append(b, pattern[i+1:j]...)
+			i = j - 1
 		default:
-			amountBuffer = append(amountBuffer, []byte(pattern[i-n:i])...)
+			b = append(b, []byte(pattern[i-n:i])...)
 		}
+		i += n
 	}
-	state.Write(amountBuffer)
+	state.Write(b)
 }
