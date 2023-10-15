@@ -37,22 +37,24 @@ type Unit struct {
 }
 
 type Locale struct {
-    CurrencyFormat        CurrencyFormat
-    DateFormat            CalendarFormat
-    TimeFormat            CalendarFormat
-    DatetimeFormat        CalendarFormat
-    CurrencySymbol        map[string]CurrencySymbol
-    DecimalSymbol         int32
-    GroupSymbol           int32
-    CurrencyDecimalSymbol int32
-    CurrencyGroupSymbol   int32
-    PlusSymbol            int32
-    MinusSymbol           int32
-    TimeSeparatorSymbol   int32
-    MonthSymbol           [12]CalendarSymbol
-    DaySymbol             [7]CalendarSymbol
-    DayPeriodSymbol       [2]CalendarSymbol
-    Unit                  map[string]Unit
+    DecimalFormat          string
+    CurrencyFormat         CurrencyFormat
+    DateFormat             CalendarFormat
+    TimeFormat             CalendarFormat
+    DatetimeFormat         CalendarFormat
+    DatetimeIntervalFormat map[string]map[string]string
+    CurrencySymbol         map[string]CurrencySymbol
+    DecimalSymbol          int32
+    GroupSymbol            int32
+    CurrencyDecimalSymbol  int32
+    CurrencyGroupSymbol    int32
+    PlusSymbol             int32
+    MinusSymbol            int32
+    TimeSeparatorSymbol    int32
+    MonthSymbol            [12]CalendarSymbol
+    DaySymbol              [7]CalendarSymbol
+    DayPeriodSymbol        [2]CalendarSymbol
+    Unit                   map[string]Unit
 }
 
 type Currency struct {
@@ -63,7 +65,217 @@ type Currency struct {
 }
 
 var locales = map[string]Locale{
-    "en": {CurrencyFormat{"¤#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, MMMM d, y", "MMMM d, y", "MMM d, y", "M/d/yy"}, CalendarFormat{"h:mm:ss a zzzz", "h:mm:ss a z", "h:mm:ss a", "h:mm a"}, CalendarFormat{"{1} 'at' {0}", "{1} 'at' {0}", "{1}, {0}", "{1}, {0}"}, map[string]CurrencySymbol{
+    "en": {"#,##0.###", CurrencyFormat{"¤#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, MMMM d, y", "MMMM d, y", "MMM d, y", "M/d/yy"}, CalendarFormat{"h:mm:ss a zzzz", "h:mm:ss a z", "h:mm:ss a", "h:mm a"}, CalendarFormat{"{1} 'at' {0}", "{1} 'at' {0}", "{1}, {0}", "{1}, {0}"}, map[string]map[string]string{
+        "": {
+            "": "{0} – {1}",
+        },
+        "E, M/d": {
+            "M": "E, M/d – E, M/d",
+            "d": "E, M/d – E, M/d",
+        },
+        "E, M/d/y": {
+            "M": "E, M/d/y – E, M/d/y",
+            "d": "E, M/d/y – E, M/d/y",
+            "y": "E, M/d/y – E, M/d/y",
+        },
+        "E, MMM d": {
+            "M": "E, MMM d – E, MMM d",
+            "d": "E, MMM d – E, MMM d",
+        },
+        "E, MMM d, y": {
+            "M": "E, MMM d – E, MMM d, y",
+            "d": "E, MMM d – E, MMM d, y",
+            "y": "E, MMM d, y – E, MMM d, y",
+        },
+        "E, MMM d, y G": {
+            "G": "E, MMM d, y G – E, MMM d, y G",
+            "M": "E, MMM d – E, MMM d, y G",
+            "d": "E, MMM d – E, MMM d, y G",
+            "y": "E, MMM d, y – E, MMM d, y G",
+        },
+        "G y": {
+            "G": "G y – G y",
+            "y": "G y–y",
+        },
+        "G y MMM": {
+            "G": "G y MMM – G y MMM",
+            "M": "G y MMM–MMM",
+            "y": "G y MMM – y MMM",
+        },
+        "G y MMM d": {
+            "G": "G y MMM d – G y MMM d",
+            "M": "G y MMM d – MMM d",
+            "d": "G y MMM d–d",
+            "y": "G y MMM d – y MMM d",
+        },
+        "G y MMM d, E": {
+            "G": "G y MMM d, E – G y MMM d, E",
+            "M": "G y MMM d, E – MMM d, E",
+            "d": "G y MMM d, E – MMM d, E",
+            "y": "G y MMM d, E – y MMM d, E",
+        },
+        "GGGGG y-MM-dd": {
+            "G": "GGGGG y-MM-dd – GGGGG y-MM-dd",
+            "M": "GGGGG y-MM-dd – y-MM-dd",
+            "d": "GGGGG y-MM-dd – y-MM-dd",
+            "y": "GGGGG y-MM-dd – y-MM-dd",
+        },
+        "HH": {
+            "H": "HH – HH",
+        },
+        "HH:mm": {
+            "H": "HH:mm – HH:mm",
+            "m": "HH:mm – HH:mm",
+        },
+        "HH:mm v": {
+            "H": "HH:mm – HH:mm v",
+            "m": "HH:mm – HH:mm v",
+        },
+        "L": {
+            "M": "M – M",
+        },
+        "LLL": {
+            "M": "MMM – MMM",
+        },
+        "M/d": {
+            "M": "M/d – M/d",
+            "d": "M/d – M/d",
+        },
+        "M/d/y": {
+            "M": "M/d/y – M/d/y",
+            "d": "M/d/y – M/d/y",
+            "y": "M/d/y – M/d/y",
+        },
+        "M/d/y G": {
+            "G": "M/d/y G – M/d/y G",
+            "M": "M/d/y – M/d/y G",
+            "d": "M/d/y – M/d/y G",
+            "y": "M/d/y – M/d/y G",
+        },
+        "M/y": {
+            "M": "M/y – M/y",
+            "y": "M/y – M/y",
+        },
+        "MM-dd": {
+            "M": "MM-dd – MM-dd",
+            "d": "MM-dd – MM-dd",
+        },
+        "MM-dd, E": {
+            "M": "MM-dd, E – MM-dd, E",
+            "d": "MM-dd, E – MM-dd, E",
+        },
+        "MMM d": {
+            "M": "MMM d – MMM d",
+            "d": "MMM d – d",
+        },
+        "MMM d, E": {
+            "M": "MMM d, E – MMM d, E",
+            "d": "MMM d, E – MMM d, E",
+        },
+        "MMM d, y": {
+            "M": "MMM d – MMM d, y",
+            "d": "MMM d – d, y",
+            "y": "MMM d, y – MMM d, y",
+        },
+        "MMM d, y G": {
+            "G": "MMM d, y G – MMM d, y G",
+            "M": "MMM d – MMM d, y G",
+            "d": "MMM d – d, y G",
+            "y": "MMM d, y – MMM d, y G",
+        },
+        "MMM y": {
+            "M": "MMM – MMM y",
+            "y": "MMM y – MMM y",
+        },
+        "MMM y G": {
+            "G": "MMM y G – MMM y G",
+            "M": "MMM – MMM y G",
+            "y": "MMM y – MMM y G",
+        },
+        "MMMM y": {
+            "M": "MMMM – MMMM y",
+            "y": "MMMM y – MMMM y",
+        },
+        "d": {
+            "d": "d – d",
+        },
+        "h B": {
+            "B": "h B – h B",
+            "h": "h – h B",
+        },
+        "h a": {
+            "a": "h a – h a",
+            "h": "h–h a",
+        },
+        "h:mm B": {
+            "B": "h:mm B – h:mm B",
+            "h": "h:mm – h:mm B",
+            "m": "h:mm – h:mm B",
+        },
+        "h:mm a": {
+            "a": "h:mm a – h:mm a",
+            "h": "h:mm–h:mm a",
+            "m": "h:mm–h:mm a",
+        },
+        "h:mm a v": {
+            "a": "h:mm a – h:mm a v",
+            "h": "h:mm–h:mm a v",
+            "m": "h:mm–h:mm a v",
+        },
+        "h:mm a": {
+            "a": "h:mm a – h:mm a",
+            "h": "h:mm – h:mm a",
+            "m": "h:mm – h:mm a",
+        },
+        "h:mm a v": {
+            "a": "h:mm a – h:mm a v",
+            "h": "h:mm – h:mm a v",
+            "m": "h:mm – h:mm a v",
+        },
+        "h a": {
+            "a": "h a – h a",
+            "h": "h – h a",
+        },
+        "y": {
+            "y": "y – y",
+        },
+        "y G": {
+            "G": "y G – y G",
+            "y": "y – y G",
+        },
+        "y MMM": {
+            "M": "y MMM–MMM",
+            "y": "y MMM – y MMM",
+        },
+        "y MMM d": {
+            "M": "y MMM d – MMM d",
+            "d": "y MMM d–d",
+            "y": "y MMM d – y MMM d",
+        },
+        "y MMM d, E": {
+            "M": "y MMM d, E – MMM d, E",
+            "d": "y MMM d, E – MMM d, E",
+            "y": "y MMM d, E – y MMM d, E",
+        },
+        "y MMMM": {
+            "M": "y MMMM–MMMM",
+            "y": "y MMMM – y MMMM",
+        },
+        "y-MM": {
+            "M": "y-MM – y-MM",
+            "y": "y-MM – y-MM",
+        },
+        "y-MM-dd": {
+            "M": "y-MM-dd – y-MM-dd",
+            "d": "y-MM-dd – y-MM-dd",
+            "y": "y-MM-dd – y-MM-dd",
+        },
+        "y-MM-dd, E": {
+            "M": "y-MM-dd, E – y-MM-dd, E",
+            "d": "y-MM-dd, E – y-MM-dd, E",
+            "y": "y-MM-dd, E – y-MM-dd, E",
+        },
+    }, map[string]CurrencySymbol{
         "AED": {"AED", ""},
         "AFN": {"AFN", "؋"},
         "ALL": {"ALL", ""},
@@ -267,7 +479,250 @@ var locales = map[string]Locale{
         "duration-week": {Count{"{0} semana", "{0} semanas"}, Count{"{0} sem.", "{0} sems."}, Count{"{0}sem.", "{0}sems."}},
         "duration-year": {Count{"{0} año", "{0} años"}, Count{"{0} a.", "{0} aa."}, Count{"{0}a.", "{0}aa."}},
     }},
-    "es": {CurrencyFormat{"#,##0.00 ¤", "#,##0.00", "#,##0.00 ¤"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "d MMM y", "d/M/yy"}, CalendarFormat{"H:mm:ss (zzzz)", "H:mm:ss z", "H:mm:ss", "H:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1}, {0}", "{1}, {0}"}, map[string]CurrencySymbol{
+    "es": {"#,##0.###", CurrencyFormat{"#,##0.00 ¤", "#,##0.00", "#,##0.00 ¤"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "d MMM y", "d/M/yy"}, CalendarFormat{"H:mm:ss (zzzz)", "H:mm:ss z", "H:mm:ss", "H:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1}, {0}", "{1}, {0}"}, map[string]map[string]string{
+        "": {
+            "": "{0} – {1}",
+        },
+        "E, d 'de' MMMM": {
+            "M": "E, d 'de' MMMM – E, d 'de' MMMM",
+            "d": "E, d 'de' MMMM – E, d 'de' MMMM",
+        },
+        "E, d MMM": {
+            "M": "E, d MMM – E, d MMM",
+            "d": "E, d MMM – E, d MMM",
+        },
+        "E, d MMM y G": {
+            "G": "E, d MMM y G – E, d MMM y G",
+            "M": "E, d MMM – E, d MMM y G",
+            "d": "E, d MMM – E, d MMM y G",
+            "y": "E, d MMM y – E, d MMM y G",
+        },
+        "E, d/M": {
+            "M": "E, d/M – E, d/M",
+            "d": "E, d/M – E, d/M",
+        },
+        "EEE, d 'de' MMMM 'de' y": {
+            "M": "E, d 'de' MMMM – E, d 'de' MMMM 'de' y",
+            "d": "E, d 'de' MMMM – E, d 'de' MMMM 'de' y",
+            "y": "E, d 'de' MMMM 'de' y – E, d 'de' MMMM 'de' y",
+        },
+        "EEE, d MMM y": {
+            "M": "E, d MMM – E, d MMM y",
+            "d": "E, d MMM – E, d MMM y",
+            "y": "E, d MMM y – E, d MMM y",
+        },
+        "EEE, d/M/y": {
+            "M": "E, d/M/y – E, d/M/y",
+            "d": "E, d/M/y – E, d/M/y",
+            "y": "E, d/M/y – E, d/M/y",
+        },
+        "G y": {
+            "G": "G y – G y",
+            "y": "G y–y",
+        },
+        "G y MMM": {
+            "G": "G y MMM – G y MMM",
+            "M": "G y MMM–MMM",
+            "y": "G y MMM – y MMM",
+        },
+        "G y MMM d": {
+            "G": "G y MMM d – G y MMM d",
+            "M": "G y MMM d – MMM d",
+            "d": "G y MMM d–d",
+            "y": "G y MMM d – y MMM d",
+        },
+        "G y MMM d, E": {
+            "G": "G y MMM d, E – G y MMM d, E",
+            "M": "G y MMM d, E – MMM d, E",
+            "d": "G y MMM d, E – MMM d, E",
+            "y": "G y MMM d, E – y MMM d, E",
+        },
+        "GGGGG y-MM-dd": {
+            "G": "GGGGG y-MM-dd – GGGGG y-MM-dd",
+            "M": "GGGGG y-MM-dd – y-MM-dd",
+            "d": "GGGGG y-MM-dd – y-MM-dd",
+            "y": "GGGGG y-MM-dd – y-MM-dd",
+        },
+        "H": {
+            "H": "H–H",
+        },
+        "H:mm": {
+            "H": "H:mm–H:mm",
+            "m": "H:mm–H:mm",
+        },
+        "H:mm v": {
+            "H": "H:mm–H:mm v",
+            "m": "H:mm–H:mm v",
+        },
+        "HH": {
+            "H": "HH–HH",
+        },
+        "HH:mm": {
+            "H": "HH:mm–HH:mm",
+            "m": "HH:mm–HH:mm",
+        },
+        "HH:mm v": {
+            "H": "HH:mm–HH:mm v",
+            "m": "HH:mm–HH:mm v",
+        },
+        "L": {
+            "M": "M–M",
+        },
+        "LLL": {
+            "M": "MMM–MMM",
+        },
+        "M/y": {
+            "M": "M/y – M/y",
+            "y": "M/y – M/y",
+        },
+        "MM-dd": {
+            "M": "MM-dd – MM-dd",
+            "d": "MM-dd – MM-dd",
+        },
+        "MM-dd, E": {
+            "M": "MM-dd, E – MM-dd, E",
+            "d": "MM-dd, E – MM-dd, E",
+        },
+        "MMM d": {
+            "M": "MMM d – MMM d",
+            "d": "MMM d–d",
+        },
+        "MMM d, E": {
+            "M": "MMM d, E – MMM d, E",
+            "d": "MMM d, E – MMM d, E",
+        },
+        "MMM y": {
+            "M": "MMM–MMM y",
+            "y": "MMM y – MMM y",
+        },
+        "MMM y G": {
+            "G": "MMM y G – MMM y G",
+            "M": "MMM–MMM y G",
+            "y": "MMM y – MMM y G",
+        },
+        "MMMM 'de' y": {
+            "M": "MMMM–MMMM 'de' y",
+            "y": "MMMM 'de' y – MMMM 'de' y",
+        },
+        "d": {
+            "d": "d–d",
+        },
+        "d 'de' MMMM": {
+            "M": "d 'de' MMMM – d 'de' MMMM",
+            "d": "d–d 'de' MMMM",
+        },
+        "d 'de' MMMM 'de' y": {
+            "M": "d 'de' MMMM – d 'de' MMMM 'de' y",
+            "d": "d–d 'de' MMMM 'de' y",
+            "y": "d 'de' MMMM 'de' y – d 'de' MMMM 'de' y",
+        },
+        "d MMM": {
+            "M": "d MMM – d MMM",
+            "d": "d–d MMM",
+        },
+        "d MMM y": {
+            "M": "d MMM – d MMM y",
+            "d": "d–d MMM y",
+            "y": "d MMM y – d MMM y",
+        },
+        "d MMM y G": {
+            "G": "d MMM y G – d MMM y G",
+            "M": "d MMM – d MMM y G",
+            "d": "d–d MMM y G",
+            "y": "d MMM y – d MMM y G",
+        },
+        "d/M": {
+            "M": "d/M – d/M",
+            "d": "d/M – d/M",
+        },
+        "d/M/y": {
+            "M": "d/M/y – d/M/y",
+            "d": "d/M/y – d/M/y",
+            "y": "d/M/y – d/M/y",
+        },
+        "d/M/y GGGGG": {
+            "G": "d/M/y G – d/M/y G",
+            "M": "d/M/y – d/M/y G",
+            "d": "d/M/y – d/M/y G",
+            "y": "d/M/y – d/M/y G",
+        },
+        "h B": {
+            "B": "h B – h B",
+            "h": "h–h B",
+        },
+        "h a": {
+            "a": "h a – h a",
+            "h": "h–h a",
+        },
+        "h:mm B": {
+            "B": "h:mm B – h:mm B",
+            "h": "h:mm–h:mm B",
+            "m": "h:mm–h:mm B",
+        },
+        "h:mm a": {
+            "a": "h:mm a – h:mm a",
+            "h": "h:mm–h:mm a",
+            "m": "h:mm–h:mm a",
+        },
+        "h:mm a v": {
+            "a": "h:mm a – h:mm a v",
+            "h": "h:mm–h:mm a v",
+            "m": "h:mm–h:mm a v",
+        },
+        "h:mm a": {
+            "a": "h:mm a – h:mm a",
+            "h": "h:mm – h:mm a",
+            "m": "h:mm – h:mm a",
+        },
+        "h:mm a v": {
+            "a": "h:mm a – h:mm a v",
+            "h": "h:mm–h:mm a v",
+            "m": "h:mm–h:mm a v",
+        },
+        "h a": {
+            "a": "h a – h a",
+            "h": "h–h a",
+        },
+        "y": {
+            "y": "y–y",
+        },
+        "y G": {
+            "G": "y G – y G",
+            "y": "y–y G",
+        },
+        "y MMM": {
+            "M": "y MMM–MMM",
+            "y": "y MMM – y MMM",
+        },
+        "y MMM d": {
+            "M": "y MMM d – MMM d",
+            "d": "y MMM d–d",
+            "y": "y MMM d – y MMM d",
+        },
+        "y MMM d, E": {
+            "M": "y MMM d, E – MMM d, E",
+            "d": "y MMM d, E – MMM d, E",
+            "y": "y MMM d, E – y MMM d, E",
+        },
+        "y MMMM": {
+            "M": "y MMMM–MMMM",
+            "y": "y MMMM – y MMMM",
+        },
+        "y-MM": {
+            "M": "y-MM – y-MM",
+            "y": "y-MM – y-MM",
+        },
+        "y-MM-dd": {
+            "M": "y-MM-dd – y-MM-dd",
+            "d": "y-MM-dd – y-MM-dd",
+            "y": "y-MM-dd – y-MM-dd",
+        },
+        "y-MM-dd, E": {
+            "M": "y-MM-dd, E – y-MM-dd, E",
+            "d": "y-MM-dd, E – y-MM-dd, E",
+            "y": "y-MM-dd, E – y-MM-dd, E",
+        },
+    }, map[string]CurrencySymbol{
         "AED": {"AED", ""},
         "AFN": {"AFN", "؋"},
         "ALL": {"ALL", ""},
@@ -471,7 +926,266 @@ var locales = map[string]Locale{
         "duration-week": {Count{"{0} semana", "{0} semanas"}, Count{"{0} sem.", "{0} sems."}, Count{"{0}sem.", "{0}sems."}},
         "duration-year": {Count{"{0} año", "{0} años"}, Count{"{0} a.", "{0} aa."}, Count{"{0}a.", "{0}aa."}},
     }},
-    "es_419": {CurrencyFormat{"¤#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "d MMM y", "d/M/yy"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1} {0}", "{1}, {0}"}, map[string]CurrencySymbol{
+    "es_419": {"#,##0.###", CurrencyFormat{"¤#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "d MMM y", "d/M/yy"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1} {0}", "{1}, {0}"}, map[string]map[string]string{
+        "": {
+            "": "{0} – {1}",
+        },
+        "E d/M/y": {
+            "M": "E, d/M/y–E, d/M/y",
+            "d": "E, d/M/y–E, d/M/y",
+            "y": "E, d/M/y–E, d/M/y",
+        },
+        "E, d 'de' MMMM": {
+            "M": "E, d 'de' MMMM – E, d 'de' MMMM",
+            "d": "E, d 'de' MMMM – E, d 'de' MMMM",
+        },
+        "E, d MMM": {
+            "M": "E, d MMM – E, d MMM",
+            "d": "E, d MMM – E, d MMM",
+        },
+        "E, d MMM y": {
+            "M": "E, d 'de' MMM – E, d 'de' MMM 'de' y",
+            "d": "E, d 'de' MMM – E, d 'de' MMM 'de' y",
+            "y": "E, d 'de' MMM 'de' y – E, d 'de' MMM 'de' y",
+        },
+        "E, d MMM y G": {
+            "G": "E, d MMM y G – E, d MMM y G",
+            "M": "E, d MMM – E, d MMM y G",
+            "d": "E, d MMM – E, d MMM y G",
+            "y": "E, d MMM y – E, d MMM y G",
+        },
+        "E, d/M": {
+            "M": "E, d/M – E, d/M",
+            "d": "E, d/M – E, d/M",
+        },
+        "EEE, d 'de' MMMM 'de' y": {
+            "M": "E, d 'de' MMMM – E, d 'de' MMMM 'de' y",
+            "d": "E, d 'de' MMMM – E, d 'de' MMMM 'de' y",
+            "y": "E, d 'de' MMMM 'de' y – E, d 'de' MMMM 'de' y",
+        },
+        "EEE, d MMM y": {
+            "M": "E, d MMM – E, d MMM y",
+            "d": "E, d MMM – E, d MMM y",
+            "y": "E, d MMM y – E, d MMM y",
+        },
+        "EEE, d/M/y": {
+            "M": "E, d/M/y – E, d/M/y",
+            "d": "E, d/M/y – E, d/M/y",
+            "y": "E, d/M/y – E, d/M/y",
+        },
+        "G y": {
+            "G": "G y – G y",
+            "y": "G y–y",
+        },
+        "G y MMM": {
+            "G": "G y MMM – G y MMM",
+            "M": "G y MMM–MMM",
+            "y": "G y MMM – y MMM",
+        },
+        "G y MMM d": {
+            "G": "G y MMM d – G y MMM d",
+            "M": "G y MMM d – MMM d",
+            "d": "G y MMM d–d",
+            "y": "G y MMM d – y MMM d",
+        },
+        "G y MMM d, E": {
+            "G": "G y MMM d, E – G y MMM d, E",
+            "M": "G y MMM d, E – MMM d, E",
+            "d": "G y MMM d, E – MMM d, E",
+            "y": "G y MMM d, E – y MMM d, E",
+        },
+        "GGGGG y-MM-dd": {
+            "G": "GGGGG y-MM-dd – GGGGG y-MM-dd",
+            "M": "GGGGG y-MM-dd – y-MM-dd",
+            "d": "GGGGG y-MM-dd – y-MM-dd",
+            "y": "GGGGG y-MM-dd – y-MM-dd",
+        },
+        "H": {
+            "H": "H–H",
+        },
+        "H:mm": {
+            "H": "H:mm–H:mm",
+            "m": "H:mm–H:mm",
+        },
+        "H:mm v": {
+            "H": "H:mm–H:mm v",
+            "m": "H:mm–H:mm v",
+        },
+        "HH": {
+            "H": "HH–HH",
+        },
+        "HH:mm": {
+            "H": "HH:mm–HH:mm",
+            "m": "HH:mm–HH:mm",
+        },
+        "HH:mm v": {
+            "H": "HH:mm–HH:mm v",
+            "m": "HH:mm–HH:mm v",
+        },
+        "L": {
+            "M": "M–M",
+        },
+        "LLL": {
+            "M": "MMM–MMM",
+        },
+        "M/y": {
+            "M": "M/y – M/y",
+            "y": "M/y – M/y",
+        },
+        "MM-dd": {
+            "M": "MM-dd – MM-dd",
+            "d": "MM-dd – MM-dd",
+        },
+        "MM-dd, E": {
+            "M": "MM-dd, E – MM-dd, E",
+            "d": "MM-dd, E – MM-dd, E",
+        },
+        "MMM d": {
+            "M": "MMM d – MMM d",
+            "d": "MMM d–d",
+        },
+        "MMM d, E": {
+            "M": "MMM d, E – MMM d, E",
+            "d": "MMM d, E – MMM d, E",
+        },
+        "MMM y": {
+            "M": "MMM–MMM y",
+            "y": "MMM y – MMM y",
+        },
+        "MMM y G": {
+            "G": "MMM y G – MMM y G",
+            "M": "MMM–MMM y G",
+            "y": "MMM y – MMM y G",
+        },
+        "MMMM 'de' y": {
+            "M": "MMMM–MMMM 'de' y",
+            "y": "MMMM 'de' y – MMMM 'de' y",
+        },
+        "d": {
+            "d": "d–d",
+        },
+        "d 'de' MMM 'de' y G": {
+            "G": "d MMM 'de' y G – d MMM 'de' y G",
+            "M": "d MMM – d MMM 'de' y G",
+            "d": "d–d MMM 'de' y G",
+            "y": "d MMM 'de' y – d MMM 'de' y G",
+        },
+        "d 'de' MMMM": {
+            "M": "d 'de' MMMM – d 'de' MMMM",
+            "d": "d–d 'de' MMMM",
+        },
+        "d 'de' MMMM 'de' y": {
+            "M": "d 'de' MMMM – d 'de' MMMM 'de' y",
+            "d": "d–d 'de' MMMM 'de' y",
+            "y": "d 'de' MMMM 'de' y – d 'de' MMMM 'de' y",
+        },
+        "d MMM": {
+            "M": "d MMM – d MMM",
+            "d": "d–d MMM",
+        },
+        "d MMM y": {
+            "M": "d MMM – d MMM y",
+            "d": "d–d MMM y",
+            "y": "d MMM y – d MMM y",
+        },
+        "d MMM y G": {
+            "G": "d MMM y G – d MMM y G",
+            "M": "d MMM – d MMM y G",
+            "d": "d–d MMM y G",
+            "y": "d MMM y – d MMM y G",
+        },
+        "d/M": {
+            "M": "d/M – d/M",
+            "d": "d/M – d/M",
+        },
+        "d/M/y": {
+            "M": "d/M/y – d/M/y",
+            "d": "d/M/y – d/M/y",
+            "y": "d/M/y – d/M/y",
+        },
+        "d/M/y GGGGG": {
+            "G": "d/M/y G – d/M/y G",
+            "M": "d/M/y – d/M/y G",
+            "d": "d/M/y – d/M/y G",
+            "y": "d/M/y – d/M/y G",
+        },
+        "h B": {
+            "B": "h B – h B",
+            "h": "h–h B",
+        },
+        "h a": {
+            "a": "h a – h a",
+            "h": "h–h a",
+        },
+        "h:mm B": {
+            "B": "h:mm B – h:mm B",
+            "h": "h:mm–h:mm B",
+            "m": "h:mm–h:mm B",
+        },
+        "h:mm a": {
+            "a": "h:mm a – h:mm a",
+            "h": "h:mm–h:mm a",
+            "m": "h:mm–h:mm a",
+        },
+        "h:mm a v": {
+            "a": "h:mm a – h:mm a v",
+            "h": "h:mm–h:mm a v",
+            "m": "h:mm–h:mm a v",
+        },
+        "h:mm a": {
+            "a": "h:mm a – h:mm a",
+            "h": "h:mm – h:mm a",
+            "m": "h:mm – h:mm a",
+        },
+        "h:mm a v": {
+            "a": "h:mm a – h:mm a v",
+            "h": "h:mm–h:mm a v",
+            "m": "h:mm–h:mm a v",
+        },
+        "h a": {
+            "a": "h a – h a",
+            "h": "h–h a",
+        },
+        "y": {
+            "y": "y–y",
+        },
+        "y G": {
+            "G": "y G – y G",
+            "y": "y–y G",
+        },
+        "y MMM": {
+            "M": "y MMM–MMM",
+            "y": "y MMM – y MMM",
+        },
+        "y MMM d": {
+            "M": "y MMM d – MMM d",
+            "d": "y MMM d–d",
+            "y": "y MMM d – y MMM d",
+        },
+        "y MMM d, E": {
+            "M": "y MMM d, E – MMM d, E",
+            "d": "y MMM d, E – MMM d, E",
+            "y": "y MMM d, E – y MMM d, E",
+        },
+        "y MMMM": {
+            "M": "y MMMM–MMMM",
+            "y": "y MMMM – y MMMM",
+        },
+        "y-MM": {
+            "M": "y-MM – y-MM",
+            "y": "y-MM – y-MM",
+        },
+        "y-MM-dd": {
+            "M": "y-MM-dd – y-MM-dd",
+            "d": "y-MM-dd – y-MM-dd",
+            "y": "y-MM-dd – y-MM-dd",
+        },
+        "y-MM-dd, E": {
+            "M": "y-MM-dd, E – y-MM-dd, E",
+            "d": "y-MM-dd, E – y-MM-dd, E",
+            "y": "y-MM-dd, E – y-MM-dd, E",
+        },
+    }, map[string]CurrencySymbol{
         "AED": {"AED", ""},
         "AFN": {"AFN", "؋"},
         "ALL": {"ALL", ""},
@@ -675,7 +1389,288 @@ var locales = map[string]Locale{
         "duration-week": {Count{"{0} semana", "{0} semanas"}, Count{"{0} sem.", "{0} sems."}, Count{"{0}sem.", "{0}sems."}},
         "duration-year": {Count{"{0} año", "{0} años"}, Count{"{0} a.", "{0} aa."}, Count{"{0}a.", "{0}aa."}},
     }},
-    "es_CL": {CurrencyFormat{"¤#,##0.00;¤-#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "dd-MM-y", "dd-MM-yy"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1} {0}", "{1}, {0}"}, map[string]CurrencySymbol{
+    "es_CL": {"#,##0.###", CurrencyFormat{"¤#,##0.00;¤-#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "dd-MM-y", "dd-MM-yy"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1} {0}", "{1}, {0}"}, map[string]map[string]string{
+        "": {
+            "": "{0} a el {1}",
+        },
+        "E d/M/y": {
+            "M": "E, d/M/y–E, d/M/y",
+            "d": "E, d/M/y–E, d/M/y",
+            "y": "E, d/M/y–E, d/M/y",
+        },
+        "E dd-MM-y": {
+            "M": "E dd-MM-y – E dd-MM-y",
+            "d": "E dd-MM-y – E dd-MM-y",
+            "y": "E dd-MM-y – E dd-MM-y",
+        },
+        "E, d 'de' MMMM": {
+            "M": "E, d 'de' MMMM – E, d 'de' MMMM",
+            "d": "E, d 'de' MMMM – E, d 'de' MMMM",
+        },
+        "E, d MMM": {
+            "M": "E, d MMM – E, d MMM",
+            "d": "E, d MMM – E, d MMM",
+        },
+        "E, d MMM y": {
+            "M": "E, d 'de' MMM – E, d 'de' MMM 'de' y",
+            "d": "E, d 'de' MMM – E, d 'de' MMM 'de' y",
+            "y": "E, d 'de' MMM 'de' y – E, d 'de' MMM 'de' y",
+        },
+        "E, d MMM y G": {
+            "G": "E, d MMM y G – E, d MMM y G",
+            "M": "E, d MMM – E, d MMM y G",
+            "d": "E, d MMM – E, d MMM y G",
+            "y": "E, d MMM y – E, d MMM y G",
+        },
+        "E, d/M": {
+            "M": "E, d/M – E, d/M",
+            "d": "E, d/M – E, d/M",
+        },
+        "E, dd-MM": {
+            "M": "E dd-MM – E dd-MM",
+            "d": "E dd-MM – E dd-MM",
+        },
+        "EEE, d 'de' MMMM 'de' y": {
+            "M": "E, d 'de' MMMM – E, d 'de' MMMM 'de' y",
+            "d": "E, d 'de' MMMM – E, d 'de' MMMM 'de' y",
+            "y": "E, d 'de' MMMM 'de' y – E, d 'de' MMMM 'de' y",
+        },
+        "EEE, d MMM y": {
+            "M": "E, d MMM – E, d MMM y",
+            "d": "E, d MMM – E, d MMM y",
+            "y": "E, d MMM y – E, d MMM y",
+        },
+        "EEE, d/M/y": {
+            "M": "E, d/M/y – E, d/M/y",
+            "d": "E, d/M/y – E, d/M/y",
+            "y": "E, d/M/y – E, d/M/y",
+        },
+        "G y": {
+            "G": "G y – G y",
+            "y": "G y–y",
+        },
+        "G y MMM": {
+            "G": "G y MMM – G y MMM",
+            "M": "G y MMM–MMM",
+            "y": "G y MMM – y MMM",
+        },
+        "G y MMM d": {
+            "G": "G y MMM d – G y MMM d",
+            "M": "G y MMM d – MMM d",
+            "d": "G y MMM d–d",
+            "y": "G y MMM d – y MMM d",
+        },
+        "G y MMM d, E": {
+            "G": "G y MMM d, E – G y MMM d, E",
+            "M": "G y MMM d, E – MMM d, E",
+            "d": "G y MMM d, E – MMM d, E",
+            "y": "G y MMM d, E – y MMM d, E",
+        },
+        "GGGGG y-MM-dd": {
+            "G": "GGGGG y-MM-dd – GGGGG y-MM-dd",
+            "M": "GGGGG y-MM-dd – y-MM-dd",
+            "d": "GGGGG y-MM-dd – y-MM-dd",
+            "y": "GGGGG y-MM-dd – y-MM-dd",
+        },
+        "H": {
+            "H": "H–H",
+        },
+        "H:mm": {
+            "H": "H:mm–H:mm",
+            "m": "H:mm–H:mm",
+        },
+        "H:mm v": {
+            "H": "H:mm–H:mm v",
+            "m": "H:mm–H:mm v",
+        },
+        "HH": {
+            "H": "HH–HH",
+        },
+        "HH:mm": {
+            "H": "HH:mm–HH:mm",
+            "m": "HH:mm–HH:mm",
+        },
+        "HH:mm v": {
+            "H": "HH:mm–HH:mm v",
+            "m": "HH:mm–HH:mm v",
+        },
+        "L": {
+            "M": "M–M",
+        },
+        "LLL": {
+            "M": "MMM–MMM",
+        },
+        "M/y": {
+            "M": "M/y – M/y",
+            "y": "M/y – M/y",
+        },
+        "MM-dd": {
+            "M": "MM-dd – MM-dd",
+            "d": "MM-dd – MM-dd",
+        },
+        "MM-dd, E": {
+            "M": "MM-dd, E – MM-dd, E",
+            "d": "MM-dd, E – MM-dd, E",
+        },
+        "MM-y": {
+            "M": "MM-y – MM-y",
+            "y": "MM-y – MM-y",
+        },
+        "MMM d": {
+            "M": "MMM d – MMM d",
+            "d": "MMM d–d",
+        },
+        "MMM d, E": {
+            "M": "MMM d, E – MMM d, E",
+            "d": "MMM d, E – MMM d, E",
+        },
+        "MMM y": {
+            "M": "MMM–MMM y",
+            "y": "MMM y – MMM y",
+        },
+        "MMM y G": {
+            "G": "MMM y G – MMM y G",
+            "M": "MMM–MMM y G",
+            "y": "MMM y – MMM y G",
+        },
+        "MMMM 'de' y": {
+            "M": "MMMM–MMMM 'de' y",
+            "y": "MMMM 'de' y – MMMM 'de' y",
+        },
+        "d": {
+            "d": "d–d",
+        },
+        "d 'de' MMM 'de' y G": {
+            "G": "d MMM 'de' y G – d MMM 'de' y G",
+            "M": "d MMM – d MMM 'de' y G",
+            "d": "d–d MMM 'de' y G",
+            "y": "d MMM 'de' y – d MMM 'de' y G",
+        },
+        "d 'de' MMMM": {
+            "M": "d 'de' MMMM – d 'de' MMMM",
+            "d": "d–d 'de' MMMM",
+        },
+        "d 'de' MMMM 'de' y": {
+            "M": "d 'de' MMMM – d 'de' MMMM 'de' y",
+            "d": "d–d 'de' MMMM 'de' y",
+            "y": "d 'de' MMMM 'de' y – d 'de' MMMM 'de' y",
+        },
+        "d MMM": {
+            "M": "d MMM – d MMM",
+            "d": "d–d MMM",
+        },
+        "d MMM y": {
+            "M": "d MMM – d MMM y",
+            "d": "d–d MMM y",
+            "y": "d MMM y – d MMM y",
+        },
+        "d MMM y G": {
+            "G": "d MMM y G – d MMM y G",
+            "M": "d MMM – d MMM y G",
+            "d": "d–d MMM y G",
+            "y": "d MMM y – d MMM y G",
+        },
+        "d/M": {
+            "M": "d/M – d/M",
+            "d": "d/M – d/M",
+        },
+        "d/M/y": {
+            "M": "d/M/y – d/M/y",
+            "d": "d/M/y – d/M/y",
+            "y": "d/M/y – d/M/y",
+        },
+        "d/M/y GGGGG": {
+            "G": "d/M/y G – d/M/y G",
+            "M": "d/M/y – d/M/y G",
+            "d": "d/M/y – d/M/y G",
+            "y": "d/M/y – d/M/y G",
+        },
+        "dd-MM": {
+            "M": "dd-MM – dd-MM",
+            "d": "dd-MM – dd-MM",
+        },
+        "dd-MM-y": {
+            "M": "dd-MM-y – dd-MM-y",
+            "d": "dd-MM-y – dd-MM-y",
+            "y": "dd-MM-y – dd-MM-y",
+        },
+        "h B": {
+            "B": "h B – h B",
+            "h": "h–h B",
+        },
+        "h a": {
+            "a": "h a – h a",
+            "h": "h–h a",
+        },
+        "h:mm B": {
+            "B": "h:mm B – h:mm B",
+            "h": "h:mm–h:mm B",
+            "m": "h:mm–h:mm B",
+        },
+        "h:mm a": {
+            "a": "h:mm a – h:mm a",
+            "h": "h:mm–h:mm a",
+            "m": "h:mm–h:mm a",
+        },
+        "h:mm a v": {
+            "a": "h:mm a – h:mm a v",
+            "h": "h:mm–h:mm a v",
+            "m": "h:mm–h:mm a v",
+        },
+        "h:mm a": {
+            "a": "h:mm a – h:mm a",
+            "h": "h:mm – h:mm a",
+            "m": "h:mm – h:mm a",
+        },
+        "h:mm a v": {
+            "a": "h:mm a – h:mm a v",
+            "h": "h:mm–h:mm a v",
+            "m": "h:mm–h:mm a v",
+        },
+        "h a": {
+            "a": "h a – h a",
+            "h": "h–h a",
+        },
+        "y": {
+            "y": "y–y",
+        },
+        "y G": {
+            "G": "y G – y G",
+            "y": "y–y G",
+        },
+        "y MMM": {
+            "M": "y MMM–MMM",
+            "y": "y MMM – y MMM",
+        },
+        "y MMM d": {
+            "M": "y MMM d – MMM d",
+            "d": "y MMM d–d",
+            "y": "y MMM d – y MMM d",
+        },
+        "y MMM d, E": {
+            "M": "y MMM d, E – MMM d, E",
+            "d": "y MMM d, E – MMM d, E",
+            "y": "y MMM d, E – y MMM d, E",
+        },
+        "y MMMM": {
+            "M": "y MMMM–MMMM",
+            "y": "y MMMM – y MMMM",
+        },
+        "y-MM": {
+            "M": "y-MM – y-MM",
+            "y": "y-MM – y-MM",
+        },
+        "y-MM-dd": {
+            "M": "y-MM-dd – y-MM-dd",
+            "d": "y-MM-dd – y-MM-dd",
+            "y": "y-MM-dd – y-MM-dd",
+        },
+        "y-MM-dd, E": {
+            "M": "y-MM-dd, E – y-MM-dd, E",
+            "d": "y-MM-dd, E – y-MM-dd, E",
+            "y": "y-MM-dd, E – y-MM-dd, E",
+        },
+    }, map[string]CurrencySymbol{
         "AED": {"AED", ""},
         "AFN": {"AFN", "؋"},
         "ALL": {"ALL", ""},
@@ -879,7 +1874,132 @@ var locales = map[string]Locale{
         "duration-week": {Count{"{0} semana", "{0} semanas"}, Count{"{0} sem.", "{0} sems."}, Count{"{0}sem.", "{0}sems."}},
         "duration-year": {Count{"{0} año", "{0} años"}, Count{"{0} a.", "{0} aa."}, Count{"{0}a.", "{0}aa."}},
     }},
-    "root": {CurrencyFormat{"¤ #,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"y MMMM d, EEEE", "y MMMM d", "y MMM d", "y-MM-dd"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1} {0}", "{1} {0}", "{1} {0}", "{1} {0}"}, map[string]CurrencySymbol{
+    "root": {"#,##0.###", CurrencyFormat{"¤ #,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"y MMMM d, EEEE", "y MMMM d", "y MMM d", "y-MM-dd"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1} {0}", "{1} {0}", "{1} {0}", "{1} {0}"}, map[string]map[string]string{
+        "": {
+            "": "{0} – {1}",
+        },
+        "G y": {
+            "G": "G y – G y",
+            "y": "G y–y",
+        },
+        "G y MMM": {
+            "G": "G y MMM – G y MMM",
+            "M": "G y MMM–MMM",
+            "y": "G y MMM – y MMM",
+        },
+        "G y MMM d": {
+            "G": "G y MMM d – G y MMM d",
+            "M": "G y MMM d – MMM d",
+            "d": "G y MMM d–d",
+            "y": "G y MMM d – y MMM d",
+        },
+        "G y MMM d, E": {
+            "G": "G y MMM d, E – G y MMM d, E",
+            "M": "G y MMM d, E – MMM d, E",
+            "d": "G y MMM d, E – MMM d, E",
+            "y": "G y MMM d, E – y MMM d, E",
+        },
+        "GGGGG y-MM-dd": {
+            "G": "GGGGG y-MM-dd – GGGGG y-MM-dd",
+            "M": "GGGGG y-MM-dd – y-MM-dd",
+            "d": "GGGGG y-MM-dd – y-MM-dd",
+            "y": "GGGGG y-MM-dd – y-MM-dd",
+        },
+        "HH": {
+            "H": "HH–HH",
+        },
+        "HH:mm": {
+            "H": "HH:mm–HH:mm",
+            "m": "HH:mm–HH:mm",
+        },
+        "HH:mm v": {
+            "H": "HH:mm–HH:mm v",
+            "m": "HH:mm–HH:mm v",
+        },
+        "L": {
+            "M": "MM–MM",
+        },
+        "LLL": {
+            "M": "LLL–LLL",
+        },
+        "MM-dd": {
+            "M": "MM-dd – MM-dd",
+            "d": "MM-dd – MM-dd",
+        },
+        "MM-dd, E": {
+            "M": "MM-dd, E – MM-dd, E",
+            "d": "MM-dd, E – MM-dd, E",
+        },
+        "MMM d": {
+            "M": "MMM d – MMM d",
+            "d": "MMM d–d",
+        },
+        "MMM d, E": {
+            "M": "MMM d, E – MMM d, E",
+            "d": "MMM d, E – MMM d, E",
+        },
+        "d": {
+            "d": "d–d",
+        },
+        "h B": {
+            "B": "h B – h B",
+            "h": "h–h B",
+        },
+        "h a": {
+            "a": "h a – h a",
+            "h": "h–h a",
+        },
+        "h:mm B": {
+            "B": "h:mm B – h:mm B",
+            "h": "h:mm–h:mm B",
+            "m": "h:mm–h:mm B",
+        },
+        "h:mm a": {
+            "a": "h:mm a – h:mm a",
+            "h": "h:mm–h:mm a",
+            "m": "h:mm–h:mm a",
+        },
+        "h:mm a v": {
+            "a": "h:mm a – h:mm a v",
+            "h": "h:mm–h:mm a v",
+            "m": "h:mm–h:mm a v",
+        },
+        "y": {
+            "y": "y–y",
+        },
+        "y MMM": {
+            "M": "y MMM–MMM",
+            "y": "y MMM – y MMM",
+        },
+        "y MMM d": {
+            "M": "y MMM d – MMM d",
+            "d": "y MMM d–d",
+            "y": "y MMM d – y MMM d",
+        },
+        "y MMM d, E": {
+            "M": "y MMM d, E – MMM d, E",
+            "d": "y MMM d, E – MMM d, E",
+            "y": "y MMM d, E – y MMM d, E",
+        },
+        "y MMMM": {
+            "M": "y MMMM–MMMM",
+            "y": "y MMMM – y MMMM",
+        },
+        "y-MM": {
+            "M": "y-MM – y-MM",
+            "y": "y-MM – y-MM",
+        },
+        "y-MM-dd": {
+            "M": "y-MM-dd – y-MM-dd",
+            "d": "y-MM-dd – y-MM-dd",
+            "y": "y-MM-dd – y-MM-dd",
+        },
+        "y-MM-dd, E": {
+            "M": "y-MM-dd, E – y-MM-dd, E",
+            "d": "y-MM-dd, E – y-MM-dd, E",
+            "y": "y-MM-dd, E – y-MM-dd, E",
+        },
+    }, map[string]CurrencySymbol{
         "AED": {"AED", ""},
         "AFN": {"AFN", "؋"},
         "ALL": {"ALL", ""},

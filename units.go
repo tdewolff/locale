@@ -3,6 +3,7 @@ package locale
 import (
 	"database/sql/driver"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -27,6 +28,10 @@ func (d Duration) String() string {
 		return fmt.Sprintf("%s%d.%0*d", sign, seconds, n, fseconds)
 	}
 	return fmt.Sprintf("%s%d", sign, seconds)
+}
+
+func (d Duration) Format(layout string) string {
+	return (time.Time{}).Add(time.Duration(d)).Format(layout)
 }
 
 func (d *Duration) Scan(isrc interface{}) error {
@@ -151,12 +156,14 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 	}
 	locale := GetLocale(localeName)
 
-	// we don't handle negative durations
-	if f.Duration < 0 {
-		f.Duration = -f.Duration
+	var b []byte
+	if f.Duration == 0 {
+		log.Printf("INFO: locale: unsupported zero duration\n")
+		return
+	} else if f.Duration < 0 {
+		b = append(b, '-')
 	}
 
-	var b []byte
 	num := int64(f.Duration)
 	unitType := []string{"week", "day", "hour", "minute", "second", "millisecond", "microsecond", "nanosecond"}
 	unitSize := []int64{7 * 24 * 3600 * 1e9, 24 * 3600 * 1e9, 3600 * 1e9, 60 * 1e9, 1e9, 1e6, 1e3, 1}
@@ -170,13 +177,19 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 				count = locale.Unit["duration-"+unitType[i]].Short
 			case DurationNarrow:
 				count = locale.Unit["duration-"+unitType[i]].Narrow
+			default:
+				log.Printf("INFO: locale: unsupported duration format: %v\n", f.Layout)
 			}
 
 			pattern := count.Other
 			if v == 1 {
 				pattern = count.One
 			}
-			b = append(b, []byte(strings.ReplaceAll(pattern, "{0}", fmt.Sprintf("%d", v)))...)
+			pattern = strings.ReplaceAll(pattern, "{0}", fmt.Sprintf("%d", v))
+			if 0 < len(b) {
+				b = append(b, ' ')
+			}
+			b = append(b, []byte(pattern)...)
 		}
 		num %= unitSize[i]
 	}

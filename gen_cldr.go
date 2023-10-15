@@ -72,10 +72,12 @@ type Unit struct {
 }
 
 type Locale struct {
-	CurrencyFormat CurrencyFormat
-	DateFormat     CalendarFormat
-	TimeFormat     CalendarFormat
-	DatetimeFormat CalendarFormat
+	DecimalFormat          string
+	CurrencyFormat         CurrencyFormat
+	DateFormat             CalendarFormat
+	TimeFormat             CalendarFormat
+	DatetimeFormat         CalendarFormat
+	DatetimeIntervalFormat map[string]map[string]string
 
 	CurrencySymbol        map[string]CurrencySymbol
 	DecimalSymbol         rune
@@ -130,9 +132,25 @@ func main() {
 			}
 		}
 
+		if locale.DatetimeIntervalFormat == nil {
+			locale.DatetimeIntervalFormat = map[string]map[string]string{}
+		} else {
+			m := map[string]map[string]string{}
+			for key, val := range locale.DatetimeIntervalFormat {
+				m[key] = map[string]string{}
+				for k, v := range val {
+					m[key][k] = v
+				}
+			}
+			locale.DatetimeIntervalFormat = m
+		}
+
+		datetimeAvailableFormat := map[string]string{}
 		err := readXMLLeafs("main/"+localeName+".xml", func(tags []string, attrs []map[string]string, content string) {
 			if content != "↑↑↑" {
-				if isTag(tags, attrs, "ldml/numbers/currencyFormats/currencyFormatLength[!type]/currencyFormat[type=standard]/pattern") {
+				if isTag(tags, attrs, "ldml/numbers/decimalFormats/decimalFormatLength[!type]/decimalFormat/pattern") {
+					locale.DecimalFormat = content
+				} else if isTag(tags, attrs, "ldml/numbers/currencyFormats/currencyFormatLength[!type]/currencyFormat[type=standard]/pattern") {
 
 					if alt := attrs[len(attrs)-1]["alt"]; alt == "" {
 						locale.CurrencyFormat.Standard = content
@@ -160,7 +178,7 @@ func main() {
 							locale.TimeSeparatorSymbol = r
 						}
 					}
-				} else if isTag(tags, attrs, "ldml/numbers/currencies/currency/symbol") {
+				} else if isTag(tags, attrs, "ldml/numbers/currencies/currency[type]/symbol") {
 					currency := attrs[len(attrs)-2]["type"]
 					currencySymbol := locale.CurrencySymbol[currency]
 					if attrs[len(attrs)-1]["alt"] == "narrow" {
@@ -169,10 +187,10 @@ func main() {
 						currencySymbol.Standard = content
 					}
 					locale.CurrencySymbol[currency] = currencySymbol
-				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/months/monthContext/monthWidth/month") {
+				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/months/monthContext[type]/monthWidth[type]/month[type]") {
 					if month, _ := strconv.Atoi(attrs[len(attrs)-1]["type"]); 1 <= month && month <= 12 {
-						context := attrs[len(attrs)-3]["type"]
 						width := attrs[len(attrs)-2]["type"]
+						context := attrs[len(attrs)-3]["type"]
 						if context == "format" && width == "wide" {
 							locale.MonthSymbol[month-1].Wide = content
 						} else if context == "format" && width == "abbreviated" {
@@ -181,10 +199,10 @@ func main() {
 							locale.MonthSymbol[month-1].Narrow = content
 						}
 					}
-				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/days/dayContext/dayWidth/day") {
+				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/days/dayContext[type]/dayWidth[type]/day[type]") {
 					if day, ok := dayMap[attrs[len(attrs)-1]["type"]]; ok {
-						context := attrs[len(attrs)-3]["type"]
 						width := attrs[len(attrs)-2]["type"]
+						context := attrs[len(attrs)-3]["type"]
 						if context == "format" && width == "wide" {
 							locale.DaySymbol[day].Wide = content
 						} else if context == "format" && width == "abbreviated" {
@@ -193,14 +211,14 @@ func main() {
 							locale.DaySymbol[day].Narrow = content
 						}
 					}
-				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dayPeriods/dayPeriodContext/dayPeriodWidth/dayPeriod") {
+				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dayPeriods/dayPeriodContext[type]/dayPeriodWidth[type]/dayPeriod[type]") {
 					if period := attrs[len(attrs)-1]["type"]; period == "am" || period == "pm" {
 						i := 0
 						if period == "pm" {
 							i = 1
 						}
-						context := attrs[len(attrs)-3]["type"]
 						width := attrs[len(attrs)-2]["type"]
+						context := attrs[len(attrs)-3]["type"]
 						if context == "format" && width == "wide" {
 							locale.DayPeriodSymbol[i].Wide = content
 						} else if context == "format" && width == "abbreviated" {
@@ -209,7 +227,7 @@ func main() {
 							locale.DayPeriodSymbol[i].Narrow = content
 						}
 					}
-				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dateFormats/dateFormatLength/dateFormat/pattern") {
+				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dateFormats/dateFormatLength[type]/dateFormat/pattern") {
 					length := attrs[len(attrs)-3]["type"]
 					if length == "full" {
 						locale.DateFormat.Full = content
@@ -220,7 +238,7 @@ func main() {
 					} else if length == "short" {
 						locale.DateFormat.Short = content
 					}
-				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/timeFormats/timeFormatLength/timeFormat/pattern") {
+				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/timeFormats/timeFormatLength[type]/timeFormat/pattern") {
 					length := attrs[len(attrs)-3]["type"]
 					if length == "full" {
 						locale.TimeFormat.Full = content
@@ -231,7 +249,7 @@ func main() {
 					} else if length == "short" {
 						locale.TimeFormat.Short = content
 					}
-				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/dateTimeFormatLength/dateTimeFormat/pattern") {
+				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/dateTimeFormatLength[type]/dateTimeFormat/pattern") {
 					length := attrs[len(attrs)-3]["type"]
 					if length == "full" {
 						locale.DatetimeFormat.Full = content
@@ -242,7 +260,23 @@ func main() {
 					} else if length == "short" {
 						locale.DatetimeFormat.Short = content
 					}
-				} else if isTag(tags, attrs, "ldml/units/unitLength/unit/unitPattern") {
+				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/availableFormats/dateFormatItem[id]") {
+					datetimeAvailableFormat[attrs[len(attrs)-1]["id"]] = content
+				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/intervalFormats/intervalFormatFallback") {
+					if _, ok := locale.DatetimeIntervalFormat[""]; !ok {
+						locale.DatetimeIntervalFormat[""] = map[string]string{}
+					}
+					locale.DatetimeIntervalFormat[""][""] = content
+				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/intervalFormats/intervalFormatItem[id]/greatestDifference[id]") {
+					id := attrs[len(attrs)-2]["id"]
+					if format := datetimeAvailableFormat[id]; format != "" {
+						if _, ok := locale.DatetimeIntervalFormat[format]; !ok {
+							locale.DatetimeIntervalFormat[format] = map[string]string{}
+						}
+						greatestDifference := attrs[len(attrs)-1]["id"]
+						locale.DatetimeIntervalFormat[format][greatestDifference] = content
+					}
+				} else if isTag(tags, attrs, "ldml/units/unitLength[type]/unit[type]/unitPattern[count]") {
 					if unitName := attrs[len(attrs)-2]["type"]; strings.HasPrefix(unitName, "duration-") {
 						var count *Count
 						unit := locale.Unit[unitName]

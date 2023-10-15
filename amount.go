@@ -3,6 +3,7 @@ package locale
 import (
 	"database/sql/driver"
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"unicode"
@@ -47,7 +48,7 @@ func ParseAmount(unit currency.Unit, s string) (Amount, error) {
 }
 
 func ParseAmountBytes(unit currency.Unit, b []byte) (Amount, error) {
-	amount, dec, n := strconv.ParsePrice(b, ',', '.')
+	amount, dec, n := strconv.ParseNumber(b, ',', '.')
 	if n != len(b) {
 		return Amount{}, fmt.Errorf("invalid amount: %v", string(b))
 	}
@@ -91,7 +92,7 @@ func (a Amount) round(incr int) Amount {
 	case 10, 100:
 		scale *= int64(incr)
 	default:
-		panic(fmt.Sprintf("unexpected currency increment: %v", incr))
+		panic(fmt.Sprintf("unexpected increment: %v", incr))
 	}
 
 	shift := int64(0)
@@ -172,7 +173,7 @@ func (a Amount) Amount() (int64, int) {
 func (a Amount) StringAmount() string {
 	var b []byte
 	amount, dec := a.Amount()
-	b = strconv.AppendPrice(b, amount, dec, 0, 0, '.')
+	b = strconv.AppendNumber(b, amount, dec, 0, 0, '.')
 	return string(b)
 }
 
@@ -257,10 +258,10 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 	case CurrencyNarrow:
 		symbol = locale.CurrencySymbol[unit].Narrow
 		pattern = locale.CurrencyFormat.Standard
-	default:
-	}
-	if symbol == "" {
+	case CurrencyAmount:
 		pattern = locale.CurrencyFormat.Amount
+	default:
+		log.Printf("INFO: locale: unsupported currency format: %v\n", f.Layout)
 	}
 
 	if idx := strings.IndexByte(pattern, ';'); idx != -1 {
@@ -271,8 +272,7 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 		}
 	}
 
-	a := f.Amount
-	a.round(f.rounding)
+	a := f.Amount.round(f.rounding)
 	dec := f.digits
 	amount := a.amount / int64Scales[AmountPrecision]
 
@@ -298,8 +298,6 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 						break
 					}
 					group = j
-				default:
-					break
 				}
 				j++
 			}
@@ -308,7 +306,7 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 			if decimal != -1 && group != -1 {
 				groupSize = decimal - group
 			}
-			b = strconv.AppendPrice(b, amount, dec, groupSize, locale.GroupSymbol, locale.DecimalSymbol)
+			b = strconv.AppendNumber(b, amount, dec, groupSize, locale.GroupSymbol, locale.DecimalSymbol)
 			i = j - 1
 		case ' ':
 			b = utf8.AppendRune(b, '\u00A0') // non-breaking space
