@@ -386,20 +386,20 @@ func main() {
 	for _, v := range types {
 		t := reflect.TypeOf(v)
 		fmt.Fprintf(w, "\ntype %v ", t.Name())
-		if err := printRootType(w, t); err != nil {
+		if err := printType(w, t, 0); err != nil {
 			panic(err)
 		}
 		fmt.Fprintf(w, "\n")
 	}
 
 	fmt.Fprintf(w, "\nvar locales = map[string]Locale")
-	if err := printValue(w, reflect.ValueOf(locales)); err != nil {
+	if err := printValue(w, reflect.ValueOf(locales), 0); err != nil {
 		panic(err)
 	}
 	fmt.Fprintf(w, "\n")
 
 	fmt.Fprintf(w, "\nvar currencies = map[string]Currency")
-	if err := printValue(w, reflect.ValueOf(currencies)); err != nil {
+	if err := printValue(w, reflect.ValueOf(currencies), 0); err != nil {
 		panic(err)
 	}
 	fmt.Fprintf(w, "\n")
@@ -539,35 +539,7 @@ func (w Prefixer) Write(b []byte) (int, error) {
 	return w.Writer.Write(b)
 }
 
-func printRootType(w io.Writer, t reflect.Type) error {
-	if t.Kind() == reflect.Struct {
-		fmt.Fprintf(w, "struct {")
-		n := t.NumField()
-		wi := NewPrefixer(w, "    ")
-		fieldLen := 0
-		for i := 0; i < n; i++ {
-			field := t.Field(i)
-			if fieldLen < len(field.Name) {
-				fieldLen = len(field.Name)
-			}
-		}
-		for i := 0; i < n; i++ {
-			field := t.Field(i)
-			fmt.Fprintf(wi, "\n%s%s ", field.Name, strings.Repeat(" ", fieldLen-len(field.Name)))
-			if err := printType(wi, field.Type); err != nil {
-				return fmt.Errorf("struct field %v: %v", field.Name, err)
-			}
-		}
-		if 0 < n {
-			fmt.Fprintf(w, "\n")
-		}
-		fmt.Fprintf(w, "}")
-		return nil
-	}
-	return printType(w, t)
-}
-
-func printType(w io.Writer, t reflect.Type) error {
+func printType(w io.Writer, t reflect.Type, level int) error {
 	switch t.Kind() {
 	case reflect.Bool:
 		fmt.Fprintf(w, "bool")
@@ -597,34 +569,58 @@ func printType(w io.Writer, t reflect.Type) error {
 		fmt.Fprintf(w, "float64")
 	case reflect.Array:
 		fmt.Fprintf(w, "[%d]", t.Len())
-		if err := printType(w, t.Elem()); err != nil {
+		if err := printType(w, t.Elem(), level+1); err != nil {
 			return fmt.Errorf("array: %v", err)
 		}
 	case reflect.Slice:
 		fmt.Fprintf(w, "[]")
-		if err := printType(w, t.Elem()); err != nil {
+		if err := printType(w, t.Elem(), level+1); err != nil {
 			return fmt.Errorf("slice: %v", err)
 		}
 	case reflect.Map:
 		fmt.Fprintf(w, "map[")
-		if err := printType(w, t.Key()); err != nil {
+		if err := printType(w, t.Key(), level+1); err != nil {
 			return fmt.Errorf("map key: %v", err)
 		}
 		fmt.Fprintf(w, "]")
-		if err := printType(w, t.Elem()); err != nil {
+		if err := printType(w, t.Elem(), level+1); err != nil {
 			return fmt.Errorf("map value: %v", err)
 		}
 	case reflect.String:
 		fmt.Fprintf(w, "string")
 	case reflect.Struct:
-		fmt.Fprintf(w, t.Name())
+		if 0 < level {
+			fmt.Fprintf(w, t.Name())
+		} else {
+			fmt.Fprintf(w, "struct {")
+			n := t.NumField()
+			wi := NewPrefixer(w, "    ")
+			fieldLen := 0
+			for i := 0; i < n; i++ {
+				field := t.Field(i)
+				if fieldLen < len(field.Name) {
+					fieldLen = len(field.Name)
+				}
+			}
+			for i := 0; i < n; i++ {
+				field := t.Field(i)
+				fmt.Fprintf(wi, "\n%s%s ", field.Name, strings.Repeat(" ", fieldLen-len(field.Name)))
+				if err := printType(wi, field.Type, level+1); err != nil {
+					return fmt.Errorf("struct field %v: %v", field.Name, err)
+				}
+			}
+			if 0 < n {
+				fmt.Fprintf(w, "\n")
+			}
+			fmt.Fprintf(w, "}")
+		}
 	default:
 		return fmt.Errorf("unsupported type: %v", t)
 	}
 	return nil
 }
 
-func printValue(w io.Writer, v reflect.Value) error {
+func printValue(w io.Writer, v reflect.Value, level int) error {
 	switch v.Kind() {
 	case reflect.Bool:
 		if v.Bool() {
@@ -644,7 +640,7 @@ func printValue(w io.Writer, v reflect.Value) error {
 		wi := NewPrefixer(w, "    ")
 		for i := 0; i < n; i++ {
 			fmt.Fprintf(wi, "\n")
-			if err := printValue(wi, v.Index(i)); err != nil {
+			if err := printValue(wi, v.Index(i), level+1); err != nil {
 				return fmt.Errorf("array/slice index %v: %v", i, err)
 			}
 			fmt.Fprintf(wi, ",")
@@ -662,11 +658,11 @@ func printValue(w io.Writer, v reflect.Value) error {
 		wi := NewPrefixer(w, "    ")
 		for i := 0; i < len(keys); i++ {
 			fmt.Fprintf(wi, "\n")
-			if err := printValue(wi, keys[i]); err != nil {
+			if err := printValue(wi, keys[i], level+1); err != nil {
 				return fmt.Errorf("map key %v: %v", keys[i], err)
 			}
 			fmt.Fprintf(wi, ": ")
-			if err := printValue(wi, v.MapIndex(keys[i])); err != nil {
+			if err := printValue(wi, v.MapIndex(keys[i]), level+1); err != nil {
 				return fmt.Errorf("map value for %v: %v", keys[i], err)
 			}
 			fmt.Fprintf(wi, ",")
@@ -687,11 +683,11 @@ func printValue(w io.Writer, v reflect.Value) error {
 			}
 			field := v.Field(i)
 			if k := field.Kind(); k == reflect.Array || k == reflect.Map || k == reflect.Slice || k == reflect.Struct {
-				if err := printType(wi, field.Type()); err != nil {
+				if err := printType(wi, field.Type(), level+1); err != nil {
 					return fmt.Errorf("struct field %v: %v", v.Type().Field(i), err)
 				}
 			}
-			if err := printValue(wi, field); err != nil {
+			if err := printValue(wi, field, level+1); err != nil {
 				return fmt.Errorf("struct field %v: %v", v.Type().Field(i), err)
 			}
 		}
