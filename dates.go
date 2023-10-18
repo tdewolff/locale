@@ -15,7 +15,7 @@ import (
 const (
 	DateFull   string = "2006 January 2, Monday"
 	DateLong          = "2006 January 2"
-	DateMedium        = "2006 Jan 2"
+	DateMedium        = "2006 Jan. 2"
 	DateShort         = "2006-01-02"
 	TimeFull          = "15:04:05 Mountain Standard Time"
 	TimeLong          = "15:04:05 MST"
@@ -145,6 +145,8 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 				to.Format(state, verb)
 				j += 3
 				i = j
+			} else {
+				j++
 			}
 		}
 		state.Write([]byte(pattern[i:]))
@@ -297,89 +299,89 @@ func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([
 func layoutToPattern(layout string) string {
 	sb := strings.Builder{}
 	for i := 0; i < len(layout); {
-		if strings.HasPrefix(layout, "6") {
+		if strings.HasPrefix(layout[i:], "6") {
 			sb.WriteString("y")
 			i += 1
-		} else if strings.HasPrefix(layout, "06") {
+		} else if strings.HasPrefix(layout[i:], "06") {
 			sb.WriteString("yy")
 			i += 2
-		} else if strings.HasPrefix(layout, "2006") {
+		} else if strings.HasPrefix(layout[i:], "2006") {
 			sb.WriteString("yyyy")
 			i += 4
-		} else if strings.HasPrefix(layout, "1") {
+		} else if strings.HasPrefix(layout[i:], "1") {
 			sb.WriteString("M")
 			i += 1
-		} else if strings.HasPrefix(layout, "01") {
+		} else if strings.HasPrefix(layout[i:], "01") {
 			sb.WriteString("MM")
 			i += 2
-		} else if strings.HasPrefix(layout, "Jan") {
+		} else if strings.HasPrefix(layout[i:], "Jan") {
 			sb.WriteString("MMM")
 			i += 3
-		} else if strings.HasPrefix(layout, "January") {
+		} else if strings.HasPrefix(layout[i:], "January") {
 			sb.WriteString("MMMM")
 			i += 7
-		} else if strings.HasPrefix(layout, "J") {
+		} else if strings.HasPrefix(layout[i:], "J") {
 			sb.WriteString("MMMMM")
 			i += 1
-		} else if strings.HasPrefix(layout, "2") {
+		} else if strings.HasPrefix(layout[i:], "2") {
 			sb.WriteString("d")
 			i += 1
-		} else if strings.HasPrefix(layout, "02") {
+		} else if strings.HasPrefix(layout[i:], "02") {
 			sb.WriteString("dd")
 			i += 2
-		} else if strings.HasPrefix(layout, "Mon") {
+		} else if strings.HasPrefix(layout[i:], "Mon") {
 			sb.WriteString("E")
 			i += 3
-		} else if strings.HasPrefix(layout, "Monday") {
+		} else if strings.HasPrefix(layout[i:], "Monday") {
 			sb.WriteString("EEEE")
 			i += 6
-		} else if strings.HasPrefix(layout, "M") {
+		} else if strings.HasPrefix(layout[i:], "M") {
 			sb.WriteString("EEEEE")
 			i += 1
-		} else if strings.HasPrefix(layout, "PM") {
+		} else if strings.HasPrefix(layout[i:], "PM") {
 			sb.WriteString("a")
 			i += 2
-		} else if strings.HasPrefix(layout, "p.m.") {
+		} else if strings.HasPrefix(layout[i:], "p.m.") {
 			sb.WriteString("aaaa")
 			i += 4
-		} else if strings.HasPrefix(layout, "p. m.") {
+		} else if strings.HasPrefix(layout[i:], "p. m.") {
 			sb.WriteString("aaaaa")
 			i += 5
-		} else if strings.HasPrefix(layout, "3") {
+		} else if strings.HasPrefix(layout[i:], "3") {
 			sb.WriteString("h")
 			i += 1
-		} else if strings.HasPrefix(layout, "03") {
+		} else if strings.HasPrefix(layout[i:], "03") {
 			sb.WriteString("hh")
 			i += 2
-		} else if strings.HasPrefix(layout, "15") {
+		} else if strings.HasPrefix(layout[i:], "15") {
 			// TODO: missing H
 			sb.WriteString("HH")
 			i += 2
-		} else if strings.HasPrefix(layout, "4") {
+		} else if strings.HasPrefix(layout[i:], "4") {
 			sb.WriteString("m")
 			i += 1
-		} else if strings.HasPrefix(layout, "04") {
+		} else if strings.HasPrefix(layout[i:], "04") {
 			sb.WriteString("mm")
 			i += 2
-		} else if strings.HasPrefix(layout, "5") {
+		} else if strings.HasPrefix(layout[i:], "5") {
 			sb.WriteString("m")
 			i += 1
-		} else if strings.HasPrefix(layout, "05") {
+		} else if strings.HasPrefix(layout[i:], "05") {
 			sb.WriteString("mm")
 			i += 2
-		} else if strings.HasPrefix(layout, "MST-07:00") {
+		} else if strings.HasPrefix(layout[i:], "MST-07:00") {
 			sb.WriteString("ZZZZ")
 			i += 9
-		} else if strings.HasPrefix(layout, "MST") {
+		} else if strings.HasPrefix(layout[i:], "MST") {
 			sb.WriteString("z")
 			i += 3
-		} else if strings.HasPrefix(layout, "-0700") {
+		} else if strings.HasPrefix(layout[i:], "-0700") {
 			sb.WriteString("Z")
 			i += 5
-		} else if strings.HasPrefix(layout, "-07:00:00") {
+		} else if strings.HasPrefix(layout[i:], "-07:00:00") {
 			sb.WriteString("ZZZZZ")
 			i += 9
-		} else if strings.HasPrefix(layout, "-07:00") {
+		} else if strings.HasPrefix(layout[i:], "-07:00") {
 			sb.WriteString("ZZZZZ")
 			i += 6
 		} else {
