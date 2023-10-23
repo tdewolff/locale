@@ -24,25 +24,25 @@ func TestCurrency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.a, func(t *testing.T) {
-			amount, err := ParseAmount(tt.cur, tt.a)
+			c, err := ParseCurrency(tt.cur, tt.a)
 			test.Error(t, err)
-			test.T(t, amount.String(), tt.r)
+			test.T(t, c.String(), tt.r)
 		})
 	}
 }
 
-func TestAmountRound(t *testing.T) {
+func TestCurrencyRound(t *testing.T) {
 	tests := []struct {
-		a Amount
-		r Amount
+		a Currency
+		r Currency
 	}{
 		{},
 	}
 	for _, tt := range tests {
 		t.Run(tt.a.String(), func(t *testing.T) {
-			a := tt.a
-			a.Round()
-			test.T(t, a, tt.r)
+			c := tt.a
+			c.Round()
+			test.T(t, c, tt.r)
 		})
 	}
 }

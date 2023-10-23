@@ -29,11 +29,10 @@ type TimeFormatter struct {
 }
 
 func (f TimeFormatter) Format(state fmt.State, verb rune) {
-	localeName := "root"
+	locale := locales["root"]
 	if languager, ok := state.(Languager); ok {
-		localeName = ToLocaleName(languager.Language())
+		locale = GetLocale(languager.Language())
 	}
-	locale := GetLocale(localeName)
 
 	idxSep := -1
 	var datePattern string
@@ -122,11 +121,10 @@ type IntervalFormatter struct {
 }
 
 func (f IntervalFormatter) Format(state fmt.State, verb rune) {
-	localeName := "root"
+	locale := locales["root"]
 	if languager, ok := state.(Languager); ok {
-		localeName = ToLocaleName(languager.Language())
+		locale = GetLocale(languager.Language())
 	}
-	locale := GetLocale(localeName)
 
 	intervalFormatItem := locale.DatetimeIntervalFormat[layoutToPattern(f.Layout)]
 	if intervalFormatItem == nil {

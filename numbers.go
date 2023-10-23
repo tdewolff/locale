@@ -9,7 +9,6 @@ import (
 
 func roundToInt64(f float64, dec int) int64 {
 	return int64(f*float64(int64Scales[dec]) + 0.5)
-
 }
 
 type DecimalFormatter struct {
@@ -17,11 +16,10 @@ type DecimalFormatter struct {
 }
 
 func (f DecimalFormatter) Format(state fmt.State, verb rune) {
-	localeName := "root"
+	locale := locales["root"]
 	if languager, ok := state.(Languager); ok {
-		localeName = ToLocaleName(languager.Language())
+		locale = GetLocale(languager.Language())
 	}
-	locale := GetLocale(localeName)
 	pattern := locale.DecimalFormat
 
 	var b []byte

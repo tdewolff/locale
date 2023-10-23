@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/tdewolff/parse/v2/strconv"
 	"golang.org/x/text/currency"
+	"golang.org/x/text/language"
 )
 
 const AmountPrecision = 3 // extra decimals for arithmetics
@@ -55,8 +57,17 @@ func ParseAmountBytes(unit currency.Unit, b []byte) (Amount, error) {
 	return NewAmount(unit, amount, dec), nil
 }
 
+func ParseAmountLocale(tag language.Tag, unit currency.Unit, s string) (Amount, error) {
+	locale := GetLocale(tag)
+	amount, dec, n := strconv.ParseNumber([]byte(s), locale.GroupSymbol, locale.DecimalSymbol)
+	if n != len(s) {
+		return Amount{}, fmt.Errorf("invalid amount: %v", s)
+	}
+	return NewAmount(unit, amount, dec), nil
+}
+
 func NewAmount(unit currency.Unit, amount int64, dec int) Amount {
-	cur := GetCurrency(unit.String())
+	cur := GetCurrency(unit)
 	scale := cur.Digits + AmountPrecision
 	if dec < scale {
 		scaleMul := int64Scales[scale-dec]
@@ -73,7 +84,7 @@ func NewAmount(unit currency.Unit, amount int64, dec int) Amount {
 }
 
 func NewAmountFromFloat64(unit currency.Unit, amount float64) Amount {
-	cur := GetCurrency(unit.String())
+	cur := GetCurrency(unit)
 	scale := cur.Digits + AmountPrecision
 	a := int64(math.RoundToEven(amount * math.Pow10(scale)))
 	return Amount{unit, a, cur.Rounding, cur.Digits}
@@ -124,7 +135,7 @@ func (a Amount) Abs() Amount {
 
 func (a Amount) Add(b Amount) Amount {
 	if a.Unit != b.Unit {
-		panic(fmt.Sprintf("units don't match: %v != %v", a.Unit, b.Unit))
+		panic(fmt.Sprintf("currencies don't match: %v != %v", a.Unit, b.Unit))
 	} else if 0 < b.amount && math.MaxInt64-b.amount < a.amount {
 		panic("overflow")
 	} else if b.amount == math.MinInt64 || b.amount < 0 && a.amount < math.MinInt64-b.amount {
@@ -136,7 +147,7 @@ func (a Amount) Add(b Amount) Amount {
 
 func (a Amount) Sub(b Amount) Amount {
 	if a.Unit != b.Unit {
-		panic(fmt.Sprintf("units don't match: %v != %v", a.Unit, b.Unit))
+		panic(fmt.Sprintf("currencies don't match: %v != %v", a.Unit, b.Unit))
 	} else if 0 < b.amount && a.amount < math.MinInt64+b.amount {
 		panic("underflow")
 	} else if b.amount == math.MinInt64 || b.amount < 0 && math.MaxInt64+b.amount < a.amount {
@@ -214,6 +225,36 @@ func (a Amount) Value() (driver.Value, error) {
 	return a.String(), nil
 }
 
+func AmountRegex(tag language.Tag, unit currency.Unit) string {
+	cur := GetCurrency(unit)
+	locale := GetLocale(tag)
+
+	var decimals string
+	if 0 < cur.Digits {
+		decimals = fmt.Sprintf("(?:%s", regexp.QuoteMeta(string(locale.DecimalSymbol)))
+		switch cur.Rounding {
+		case 0, 1:
+			decimals += fmt.Sprintf("[0-9]{,%d}", cur.Digits)
+		case 10:
+			if 1 < cur.Digits {
+				decimals += fmt.Sprintf("(?:[0-9]{,%d}|[0-9]{%d}0)", cur.Digits-1, cur.Digits-1)
+			} else {
+				decimals += "0"
+			}
+		case 100:
+			if 2 < cur.Digits {
+				decimals += fmt.Sprintf("(?:[0-9]{,%d}|[0-9]{%d}00)", cur.Digits-2, cur.Digits-2)
+			} else {
+				decimals += "00"
+			}
+		default:
+			panic(fmt.Sprintf("unexpected increment: %v", cur.Rounding))
+		}
+		decimals += ")?"
+	}
+	return fmt.Sprintf("^(?:[0-9]+%s)*[0-9]+%s$", regexp.QuoteMeta(string(locale.GroupSymbol)), decimals)
+}
+
 // Available currency formats
 // TODO: support accounting formats?
 const (
@@ -229,11 +270,10 @@ type AmountFormatter struct {
 }
 
 func (f AmountFormatter) Format(state fmt.State, verb rune) {
-	localeName := "root"
+	locale := locales["root"]
 	if languager, ok := state.(Languager); ok {
-		localeName = ToLocaleName(languager.Language())
+		locale = GetLocale(languager.Language())
 	}
-	locale := GetLocale(localeName)
 
 	unit := f.Unit.String()
 	var symbol, pattern string
@@ -287,29 +327,28 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 			j := i + 1
 			group, decimal := -1, -1
 			for j < len(pattern) {
-				switch pattern[j] {
-				case '.':
+				if pattern[j] == '.' {
 					if decimal != -1 {
 						break
 					}
 					decimal = j
-				case ',':
+				} else if pattern[j] == ',' {
 					if decimal != -1 {
 						break
 					}
 					group = j
+				} else if pattern[j] != '0' && pattern[j] != '#' {
+					break
 				}
 				j++
 			}
 
 			groupSize := 3
 			if decimal != -1 && group != -1 {
-				groupSize = decimal - group
+				groupSize = decimal - group - 1
 			}
 			b = strconv.AppendNumber(b, amount, dec, groupSize, locale.GroupSymbol, locale.DecimalSymbol)
 			i = j - 1
-		case ' ':
-			b = utf8.AppendRune(b, '\u00A0') // non-breaking space
 		case '\'':
 			j := i + 1
 			for j < len(pattern) {
@@ -321,7 +360,7 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 			b = append(b, pattern[i+1:j]...)
 			i = j - 1
 		default:
-			b = append(b, []byte(pattern[i-n:i])...)
+			b = append(b, []byte(pattern[i:i+n])...)
 		}
 		i += n
 	}

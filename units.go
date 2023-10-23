@@ -55,7 +55,7 @@ func (d *Duration) Scan(isrc interface{}) error {
 	}
 
 	neg := false
-	if 0 < len(b) && b[1] == '-' {
+	if 0 < len(b) && b[0] == '-' {
 		neg = true
 		b = b[1:]
 	}
@@ -150,11 +150,10 @@ type DurationFormatter struct {
 }
 
 func (f DurationFormatter) Format(state fmt.State, verb rune) {
-	localeName := "root"
+	locale := locales["root"]
 	if languager, ok := state.(Languager); ok {
-		localeName = ToLocaleName(languager.Language())
+		locale = GetLocale(languager.Language())
 	}
-	locale := GetLocale(localeName)
 
 	var b []byte
 	if f.Duration == 0 {
