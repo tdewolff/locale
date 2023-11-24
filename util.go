@@ -16,13 +16,17 @@ func GetLocale(tag language.Tag) Locale {
 	d, ok := locales[loc]
 	for !ok && loc != "root" {
 		tag = tag.Parent()
-		loc = strings.ReplaceAll(tag.String(), "-", "_")
+		if tag == language.Und {
+			loc = "root"
+		} else {
+			loc = strings.ReplaceAll(tag.String(), "-", "_")
+		}
 		d, ok = locales[loc]
 	}
 	return d
 }
 
-func GetCurrency(unit currency.Unit) Currency {
+func GetCurrency(unit currency.Unit) CurrencyInfo {
 	d, ok := currencies[unit.String()]
 	if !ok {
 		d, _ = currencies["DEFAULT"]

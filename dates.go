@@ -126,7 +126,8 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 		locale = GetLocale(languager.Language())
 	}
 
-	intervalFormatItem := locale.DatetimeIntervalFormat[layoutToPattern(f.Layout)]
+	layoutPattern := layoutToPattern(f.Layout)
+	intervalFormatItem := locale.DatetimeIntervalFormat[layoutPattern]
 	if intervalFormatItem == nil {
 		pattern := locale.DatetimeIntervalFormat[""][""]
 		from := (TimeFormatter{Time: f.From, Layout: f.Layout})
@@ -159,7 +160,7 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 	} else if f.From.Day() != f.To.Day() {
 		greatestDifference = "d"
 	} else if f.From.Hour() != f.To.Hour() {
-		if strings.IndexByte(f.Layout, 'H') != -1 {
+		if strings.IndexByte(layoutPattern, 'H') != -1 {
 			greatestDifference = "H"
 		} else {
 			greatestDifference = "h"
@@ -306,18 +307,21 @@ func layoutToPattern(layout string) string {
 		} else if strings.HasPrefix(layout[i:], "2006") {
 			sb.WriteString("yyyy")
 			i += 4
+		} else if strings.HasPrefix(layout[i:], "15") {
+			sb.WriteString("HH")
+			i += 2
 		} else if strings.HasPrefix(layout[i:], "1") {
 			sb.WriteString("M")
 			i += 1
 		} else if strings.HasPrefix(layout[i:], "01") {
 			sb.WriteString("MM")
 			i += 2
-		} else if strings.HasPrefix(layout[i:], "Jan") {
-			sb.WriteString("MMM")
-			i += 3
 		} else if strings.HasPrefix(layout[i:], "January") {
 			sb.WriteString("MMMM")
 			i += 7
+		} else if strings.HasPrefix(layout[i:], "Jan") {
+			sb.WriteString("MMM")
+			i += 3
 		} else if strings.HasPrefix(layout[i:], "J") {
 			sb.WriteString("MMMMM")
 			i += 1
@@ -327,12 +331,12 @@ func layoutToPattern(layout string) string {
 		} else if strings.HasPrefix(layout[i:], "02") {
 			sb.WriteString("dd")
 			i += 2
-		} else if strings.HasPrefix(layout[i:], "Mon") {
-			sb.WriteString("E")
-			i += 3
 		} else if strings.HasPrefix(layout[i:], "Monday") {
 			sb.WriteString("EEEE")
 			i += 6
+		} else if strings.HasPrefix(layout[i:], "Mon") {
+			sb.WriteString("E")
+			i += 3
 		} else if strings.HasPrefix(layout[i:], "M") {
 			sb.WriteString("EEEEE")
 			i += 1
@@ -346,14 +350,11 @@ func layoutToPattern(layout string) string {
 			sb.WriteString("aaaaa")
 			i += 5
 		} else if strings.HasPrefix(layout[i:], "3") {
+			// TODO: missing H
 			sb.WriteString("h")
 			i += 1
 		} else if strings.HasPrefix(layout[i:], "03") {
 			sb.WriteString("hh")
-			i += 2
-		} else if strings.HasPrefix(layout[i:], "15") {
-			// TODO: missing H
-			sb.WriteString("HH")
 			i += 2
 		} else if strings.HasPrefix(layout[i:], "4") {
 			sb.WriteString("m")

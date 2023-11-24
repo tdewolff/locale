@@ -3,10 +3,16 @@ package locale
 import (
 	"time"
 
+	"golang.org/x/text/currency"
+	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
 
 type Printer message.Printer
+
+func NewPrinter(t language.Tag) *Printer {
+	return (*Printer)(message.NewPrinter(t))
+}
 
 func (printer *Printer) T(a ...interface{}) string {
 	p := (*message.Printer)(printer)
@@ -32,6 +38,8 @@ func (printer *Printer) T(a ...interface{}) string {
 				return p.Sprintf("%v", DurationFormatter{v, layout})
 			case Amount:
 				return p.Sprintf("%v", AmountFormatter{v, layout})
+			case currency.Unit:
+				return p.Sprintf("%v", CurrencyFormatter{v, layout})
 			}
 		}
 	} else if len(a) == 1 {

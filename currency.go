@@ -90,9 +90,13 @@ func NewAmountFromFloat64(unit currency.Unit, amount float64) Amount {
 	return Amount{unit, a, cur.Rounding, cur.Digits}
 }
 
+func (a Amount) IsZero() bool {
+	return a.amount == 0
+}
+
 // Round performs banker's rounding to the currency's increments
-func (a *Amount) Round() {
-	*a = a.round(a.rounding)
+func (a Amount) Round() Amount {
+	return a.round(a.rounding)
 }
 
 func (a Amount) round(incr int) Amount {
@@ -158,9 +162,14 @@ func (a Amount) Sub(b Amount) Amount {
 }
 
 func (a Amount) Mul(f int) Amount {
-	if 0 < f && math.MaxInt64/int64(f) < a.amount {
+	// TODO: is this right?
+	if 1 < f && 0 < a.amount && math.MaxInt64/int64(f) < a.amount {
 		panic("overflow")
-	} else if f < 0 && a.amount < math.MinInt64/int64(f) {
+	} else if f < -1 && a.amount < 0 && math.MaxInt64/int64(-f) < -a.amount {
+		panic("overflow")
+	} else if f < -1 && 0 < a.amount && a.amount < math.MinInt64/int64(f) {
+		panic("underflow")
+	} else if 1 < f && a.amount < 0 && -a.amount < math.MinInt64/int64(-f) {
 		panic("underflow")
 	}
 	a.amount *= int64(f)
@@ -169,6 +178,19 @@ func (a Amount) Mul(f int) Amount {
 
 func (a Amount) Div(f int) Amount {
 	a.amount /= int64(f)
+	return a
+}
+
+func (a Amount) Mulf(f float64) Amount {
+	// TODO: is this right?
+	incr := 1.0 < f && 0 < a.amount || f < -1.0 && a.amount < 0
+	decr := f < -1.0 && 0 < a.amount || 1.0 < f && a.amount < 0
+	if incr && float64(math.MaxInt64) < f*float64(a.amount) {
+		panic("overflow")
+	} else if decr && f*float64(a.amount) < float64(math.MinInt64) {
+		panic("underflow")
+	}
+	a.amount = int64(float64(a.amount)*f + 0.5)
 	return a
 }
 
@@ -189,7 +211,7 @@ func (a Amount) StringAmount() string {
 }
 
 func (a Amount) String() string {
-	return a.Unit.String() + a.StringAmount()
+	return a.Unit.String() + " " + a.StringAmount()
 }
 
 func (a *Amount) Scan(isrc interface{}) error {
@@ -213,7 +235,11 @@ func (a *Amount) Scan(isrc interface{}) error {
 	if err != nil {
 		return fmt.Errorf("invalid amount: %v", err)
 	}
-	amount, err := ParseAmountBytes(unit, b[3:])
+	i := 3
+	if b[i] == ' ' {
+		i++
+	}
+	amount, err := ParseAmountBytes(unit, b[i:])
 	if err != nil {
 		return err
 	}
@@ -223,6 +249,29 @@ func (a *Amount) Scan(isrc interface{}) error {
 
 func (a Amount) Value() (driver.Value, error) {
 	return a.String(), nil
+}
+
+type NullAmount struct {
+	Amount
+	Valid bool
+}
+
+// Scan implements the Scanner interface.
+func (n *NullAmount) Scan(value any) error {
+	if value == nil {
+		n.Amount, n.Valid = Amount{}, false
+		return nil
+	}
+	n.Valid = true
+	return n.Amount.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (n NullAmount) Value() (driver.Value, error) {
+	if !n.Valid {
+		return nil, nil
+	}
+	return n.Amount, nil
 }
 
 func AmountRegex(tag language.Tag, unit currency.Unit) string {
@@ -255,6 +304,32 @@ func AmountRegex(tag language.Tag, unit currency.Unit) string {
 	return fmt.Sprintf("^(?:[0-9]+%s)*[0-9]+%s$", regexp.QuoteMeta(string(locale.GroupSymbol)), decimals)
 }
 
+type CurrencyFormatter struct {
+	currency.Unit
+	Layout string
+}
+
+func (f CurrencyFormatter) Format(state fmt.State, verb rune) {
+	locale := locales["root"]
+	if languager, ok := state.(Languager); ok {
+		locale = GetLocale(languager.Language())
+	}
+
+	s := ""
+	unit := f.Unit.String()
+	switch f.Layout {
+	case "USD":
+		s = unit
+	case "US$":
+		s = locale.Currency[unit].Standard
+	case "$":
+		s = locale.Currency[unit].Narrow
+	default:
+		s = locale.Currency[f.Unit.String()].Name
+	}
+	state.Write([]byte(s))
+}
+
 // Available currency formats
 // TODO: support accounting formats?
 const (
@@ -282,7 +357,7 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 		symbol = unit
 		pattern = locale.CurrencyFormat.ISO
 	case CurrencyStandard:
-		symbol = locale.CurrencySymbol[unit].Standard
+		symbol = locale.Currency[unit].Standard
 		hasLetter := false
 		for _, r := range symbol {
 			if unicode.IsLetter(r) {
@@ -296,7 +371,7 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 			pattern = locale.CurrencyFormat.Standard
 		}
 	case CurrencyNarrow:
-		symbol = locale.CurrencySymbol[unit].Narrow
+		symbol = locale.Currency[unit].Narrow
 		pattern = locale.CurrencyFormat.Standard
 	case CurrencyAmount:
 		pattern = locale.CurrencyFormat.Amount
