@@ -94,6 +94,10 @@ func (a Amount) IsZero() bool {
 	return a.amount == 0
 }
 
+func (a Amount) IsNeg() bool {
+	return a.amount < 0
+}
+
 // Round performs banker's rounding to the currency's increments
 func (a Amount) Round() Amount {
 	return a.round(a.rounding)
@@ -167,9 +171,9 @@ func (a Amount) Mul(f int) Amount {
 		panic("overflow")
 	} else if f < -1 && a.amount < 0 && math.MaxInt64/int64(-f) < -a.amount {
 		panic("overflow")
-	} else if f < -1 && 0 < a.amount && a.amount < math.MinInt64/int64(f) {
+	} else if f < -1 && 0 < a.amount && math.MinInt64/int64(f) < a.amount {
 		panic("underflow")
-	} else if 1 < f && a.amount < 0 && -a.amount < math.MinInt64/int64(-f) {
+	} else if 1 < f && a.amount < 0 && math.MinInt64/int64(-f) < -a.amount {
 		panic("underflow")
 	}
 	a.amount *= int64(f)
@@ -261,6 +265,9 @@ func (n *NullAmount) Scan(value any) error {
 	if value == nil {
 		n.Amount, n.Valid = Amount{}, false
 		return nil
+	} else if s, ok := value.(string); ok && s == "" {
+		n.Amount, n.Valid = Amount{}, false
+		return nil
 	}
 	n.Valid = true
 	return n.Amount.Scan(value)
@@ -271,7 +278,14 @@ func (n NullAmount) Value() (driver.Value, error) {
 	if !n.Valid {
 		return nil, nil
 	}
-	return n.Amount, nil
+	return n.Amount.Value()
+}
+
+func (n NullAmount) String() string {
+	if !n.Valid {
+		return ""
+	}
+	return n.Amount.String()
 }
 
 func AmountRegex(tag language.Tag, unit currency.Unit) string {
