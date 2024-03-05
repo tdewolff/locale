@@ -39,6 +39,8 @@ var int64Scales = [...]int64{
 	1000000000000000000, // 1e18
 }
 
+var ZeroAmount = Amount{}
+
 type Amount struct {
 	currency.Unit
 	amount           int64
@@ -88,6 +90,12 @@ func NewAmountFromFloat64(unit currency.Unit, amount float64) Amount {
 	scale := cur.Digits + AmountPrecision
 	a := int64(math.RoundToEven(amount * math.Pow10(scale)))
 	return Amount{unit, a, cur.Rounding, cur.Digits}
+}
+
+// Zero returns the zero value for the amount (keep the currency).
+func (a Amount) Zero() Amount {
+	a.amount = 0
+	return a
 }
 
 func (a Amount) IsZero() bool {
@@ -143,6 +151,9 @@ func (a Amount) Abs() Amount {
 
 func (a Amount) Add(b Amount) Amount {
 	if a.Unit != b.Unit {
+		if a == ZeroAmount {
+			return b
+		}
 		panic(fmt.Sprintf("currencies don't match: %v != %v", a.Unit, b.Unit))
 	} else if 0 < b.amount && math.MaxInt64-b.amount < a.amount {
 		panic("overflow")
@@ -155,6 +166,9 @@ func (a Amount) Add(b Amount) Amount {
 
 func (a Amount) Sub(b Amount) Amount {
 	if a.Unit != b.Unit {
+		if a == ZeroAmount {
+			return b.Neg()
+		}
 		panic(fmt.Sprintf("currencies don't match: %v != %v", a.Unit, b.Unit))
 	} else if 0 < b.amount && a.amount < math.MinInt64+b.amount {
 		panic("underflow")
@@ -194,7 +208,7 @@ func (a Amount) Mulf(f float64) Amount {
 	} else if decr && f*float64(a.amount) < float64(math.MinInt64) {
 		panic("underflow")
 	}
-	a.amount = int64(float64(a.amount)*f + 0.5)
+	a.amount = int64(math.RoundToEven(float64(a.amount) * f))
 	return a
 }
 
@@ -394,8 +408,9 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 	}
 
 	if idx := strings.IndexByte(pattern, ';'); idx != -1 {
-		if f.amount < 0 {
+		if f.Amount.IsNeg() {
 			pattern = pattern[idx+1:]
+			f.Amount = f.Amount.Neg()
 		} else {
 			pattern = pattern[:idx]
 		}
