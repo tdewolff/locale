@@ -89,6 +89,8 @@ type Locale struct {
 
 	Currency map[string]Currency
 	Unit     map[string]Unit
+
+	Territory map[string]string
 }
 
 type CurrencyInfo struct {
@@ -113,8 +115,9 @@ func main() {
 	for _, localeName := range LocaleNames {
 		tag := language.MustParse(localeName)
 		locale := Locale{
-			Currency: map[string]Currency{},
-			Unit:     map[string]Unit{},
+			Currency:  map[string]Currency{},
+			Unit:      map[string]Unit{},
+			Territory: map[string]string{},
 		}
 		if !tag.IsRoot() {
 			parent := tag.Parent().String()
@@ -313,6 +316,8 @@ func main() {
 						}
 						locale.Unit[unitName] = unit
 					}
+				} else if isTag(tags, attrs, "ldml/localeDisplayNames/territories/territory[type]") {
+					locale.Territory[attrs[len(attrs)-1]["type"]] = content
 				}
 			}
 		})

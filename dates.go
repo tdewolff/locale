@@ -117,7 +117,7 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 
 type IntervalFormatter struct {
 	From, To time.Time
-	Layout   string
+	Layout   string // Go format like TimeFormatter
 }
 
 func (f IntervalFormatter) Format(state fmt.State, verb rune) {
@@ -173,8 +173,18 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 
 	pattern, ok := intervalFormatItem[greatestDifference]
 	if !ok {
-		log.Printf("INFO: locale: unsupported datetime interval greatest difference between: %v and %v\n", f.From, f.To)
-		return
+		greatestDifference = "s"
+		for diff := range intervalFormatItem {
+			if diff == "y" {
+				greatestDifference = diff
+				break
+			} else if diff == "M" {
+				greatestDifference = diff
+			} else if greatestDifference != "M" && diff < greatestDifference {
+				greatestDifference = diff
+			}
+		}
+		pattern, _ = intervalFormatItem[greatestDifference]
 	}
 
 	var b []byte

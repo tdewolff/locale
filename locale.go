@@ -8,14 +8,23 @@ import (
 	"golang.org/x/text/message"
 )
 
-type Printer message.Printer
+type Printer struct {
+	*message.Printer
 
-func NewPrinter(t language.Tag) *Printer {
-	return (*Printer)(message.NewPrinter(t))
+	LanguageTag language.Tag
+	Location    *time.Location
 }
 
-func (printer *Printer) T(a ...interface{}) string {
-	p := (*message.Printer)(printer)
+func NewPrinter(t language.Tag, loc *time.Location) *Printer {
+	return &Printer{
+		Printer: message.NewPrinter(t),
+
+		LanguageTag: t,
+		Location:    loc,
+	}
+}
+
+func (p *Printer) T(a ...any) string {
 	if len(a) == 0 {
 		return ""
 	} else if s, ok := a[0].(string); ok {
@@ -25,12 +34,15 @@ func (printer *Printer) T(a ...interface{}) string {
 		to, ok1 := a[1].(time.Time)
 		layout, ok2 := a[2].(string)
 		if ok0 && ok1 && ok2 {
+			from = from.In(p.Location)
+			to = to.In(p.Location)
 			return p.Sprintf("%v", IntervalFormatter{from, to, layout})
 		}
 	} else if len(a) == 2 {
 		if layout, ok := a[1].(string); ok {
 			switch v := a[0].(type) {
 			case time.Time:
+				v = v.In(p.Location)
 				return p.Sprintf("%v", TimeFormatter{v, layout})
 			case time.Duration:
 				return p.Sprintf("%v", DurationFormatter{Duration(v), layout})
