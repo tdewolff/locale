@@ -15,7 +15,9 @@ import (
 	"golang.org/x/text/language"
 )
 
-const AmountPrecision = 3 // extra decimals for arithmetics
+// AmountPrecision is the number of extra decimals after the currency's default number of digits
+// Most currencies have 2 digits (cents) and thus will use 5 digitis for arithmetics
+const AmountPrecision = 3
 
 var int64Scales = [...]int64{
 	1,
@@ -43,8 +45,9 @@ var ZeroAmount = Amount{}
 
 type Amount struct {
 	currency.Unit
-	amount           int64
-	rounding, digits int
+	amount   int64 // amount multiplied by 10^precision
+	rounding int   // rounding increment
+	digits   int   // decimal digits for display
 }
 
 func ParseAmount(unit currency.Unit, s string) (Amount, error) {
@@ -70,25 +73,26 @@ func ParseAmountLocale(tag language.Tag, unit currency.Unit, s string) (Amount, 
 
 func NewAmount(unit currency.Unit, amount int64, dec int) Amount {
 	cur := GetCurrency(unit)
-	scale := cur.Digits + AmountPrecision
-	if dec < scale {
-		scaleMul := int64Scales[scale-dec]
-		if math.MaxInt64/scaleMul < amount {
+	prec := cur.Digits + AmountPrecision
+	if dec < prec {
+		scale := int64Scales[prec-dec]
+		if math.MaxInt64/scale < amount {
 			panic("overflow")
-		} else if amount < math.MinInt64/scaleMul {
+		} else if amount < math.MinInt64/scale {
 			panic("underflow")
 		}
-		amount *= scaleMul
-	} else if scale < dec {
-		amount /= int64Scales[dec-scale]
+		amount *= scale
+	} else if prec < dec {
+		amount = bankersRounding(amount, dec-prec)
+		amount /= int64Scales[dec-prec]
 	}
 	return Amount{unit, amount, cur.Rounding, cur.Digits}
 }
 
 func NewAmountFromFloat64(unit currency.Unit, amount float64) Amount {
 	cur := GetCurrency(unit)
-	scale := cur.Digits + AmountPrecision
-	a := int64(math.RoundToEven(amount * math.Pow10(scale)))
+	prec := cur.Digits + AmountPrecision
+	a := int64(math.RoundToEven(amount * math.Pow10(prec)))
 	return Amount{unit, a, cur.Rounding, cur.Digits}
 }
 
@@ -106,32 +110,44 @@ func (a Amount) IsNeg() bool {
 	return a.amount < 0
 }
 
-// Round performs banker's rounding to the currency's increments
-func (a Amount) Round() Amount {
-	return a.round(a.rounding)
-}
-
-func (a Amount) round(incr int) Amount {
-	scale := int64Scales[AmountPrecision]
-	switch incr {
-	case 0, 1:
-		// no-op
-	case 10, 100:
-		scale *= int64(incr)
-	default:
-		panic(fmt.Sprintf("unexpected increment: %v", incr))
-	}
-
+// bankersRounding performs bankers rounding, with amount the original amount, and prec the number
+// of digits to round away. If the last digit is < 5 than the preceding digit stays put, if the
+// last digit is > 5, the preceding digit is increased, and when the last digit = 5 the preceding
+// digit will increase by 1 only when it is uneven.
+func bankersRounding(amount int64, prec int) int64 {
 	shift := int64(0)
-	if carry := (a.amount / (scale / 10)) % 10; carry == 5 {
-		if isEven := ((a.amount / scale) % 2) == 0; !isEven {
+	scale := int64Scales[prec]
+	if carry := (amount / (scale / 10)) % 10; carry == 5 {
+		if isEven := ((amount / scale) % 2) == 0; !isEven {
 			shift = scale
 		}
 	} else if 5 < carry {
 		shift = scale
 	}
-	a.amount += -(a.amount % scale) + shift
+	amount += -(amount % scale) + shift
+	return amount
+}
+
+// round performs banker's rounding to the given increments
+func (a Amount) round(incr int) Amount {
+	prec := AmountPrecision
+	switch incr {
+	case 0, 1:
+		// no-op
+	case 10:
+		prec++
+	case 100:
+		prec += 2
+	default:
+		panic(fmt.Sprintf("unexpected increment: %v", incr))
+	}
+	a.amount = bankersRounding(a.amount, prec)
 	return a
+}
+
+// Round performs banker's rounding to the currency's increments
+func (a Amount) Round() Amount {
+	return a.round(a.rounding)
 }
 
 func (a Amount) Neg() Amount {
@@ -195,7 +211,12 @@ func (a Amount) Mul(f int) Amount {
 }
 
 func (a Amount) Div(f int) Amount {
-	a.amount /= int64(f)
+	if a.amount < math.MaxInt64/10 {
+		a.amount = bankersRounding(a.amount*10/int64(f), 1) / 10
+	} else {
+		// TODO: to proper rounding
+		a.amount /= int64(f)
+	}
 	return a
 }
 
@@ -216,20 +237,37 @@ func (a Amount) Float64() float64 {
 	return float64(a.amount) / math.Pow10(a.digits+AmountPrecision)
 }
 
-func (a Amount) Amount() (int64, int) {
+func (a Amount) AmountRounded() (int64, int) {
 	a = a.round(1)
 	return a.amount / int64Scales[AmountPrecision], a.digits
 }
 
-func (a Amount) StringAmount() string {
-	var b []byte
-	amount, dec := a.Amount()
-	b = strconv.AppendNumber(b, amount, dec, 0, 0, '.')
-	return string(b)
+func (a Amount) Amount() (int64, int) {
+	return a.amount, a.digits + AmountPrecision
 }
 
 func (a Amount) String() string {
-	return a.Unit.String() + " " + a.StringAmount()
+	var b []byte
+	amount, dec := a.Amount()
+	b = strconv.AppendNumber(b, amount, dec, 0, 0, '.')
+
+	// remove superfluous trailing zeros
+	if 0 < dec {
+		for b[len(b)-1] == '0' {
+			b = b[:len(b)-1]
+		}
+		if b[len(b)-1] == '.' {
+			b = b[:len(b)-1]
+		}
+	}
+	return a.Unit.String() + string(b)
+}
+
+func (a Amount) StringRounded() string {
+	var b []byte
+	amount, dec := a.AmountRounded()
+	b = strconv.AppendNumber(b, amount, dec, 0, 0, '.')
+	return a.Unit.String() + string(b)
 }
 
 func (a *Amount) Scan(isrc interface{}) error {

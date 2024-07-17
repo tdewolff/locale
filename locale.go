@@ -17,8 +17,7 @@ type Printer struct {
 
 func NewPrinter(t language.Tag, loc *time.Location) *Printer {
 	return &Printer{
-		Printer: message.NewPrinter(t),
-
+		Printer:     message.NewPrinter(t),
 		LanguageTag: t,
 		Location:    loc,
 	}
@@ -28,6 +27,12 @@ func (p *Printer) T(a ...any) string {
 	if len(a) == 0 {
 		return ""
 	} else if s, ok := a[0].(string); ok {
+		if len(a) == 2 {
+			if A, ok := a[1].([]any); ok {
+				// allow passing array of arguments instead of variadic arguments
+				return p.Sprintf(s, A...)
+			}
+		}
 		return p.Sprintf(s, a[1:]...)
 	} else if len(a) == 3 {
 		from, ok0 := a[0].(time.Time)
