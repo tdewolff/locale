@@ -45,9 +45,9 @@ var ZeroAmount = Amount{}
 
 type Amount struct {
 	currency.Unit
-	amount   int64 // amount multiplied by 10^precision
-	rounding int   // rounding increment
+	amount   int64 // amount multiplied by 10^(digits + AmountPrecision)
 	digits   int   // decimal digits for display
+	rounding int   // rounding increment
 }
 
 func ParseAmount(unit currency.Unit, s string) (Amount, error) {
@@ -86,14 +86,39 @@ func NewAmount(unit currency.Unit, amount int64, dec int) Amount {
 		amount = bankersRounding(amount, dec-prec)
 		amount /= int64Scales[dec-prec]
 	}
-	return Amount{unit, amount, cur.Rounding, cur.Digits}
+	return Amount{unit, amount, cur.Digits, cur.Rounding}
 }
 
 func NewAmountFromFloat64(unit currency.Unit, amount float64) Amount {
 	cur := GetCurrency(unit)
 	prec := cur.Digits + AmountPrecision
 	a := int64(math.RoundToEven(amount * math.Pow10(prec)))
-	return Amount{unit, a, cur.Rounding, cur.Digits}
+	return Amount{unit, a, cur.Digits, cur.Rounding}
+}
+
+func (a Amount) Equals(b Amount) bool {
+	if a.Unit != b.Unit {
+		return false
+	}
+	for a.digits < b.digits {
+		if 0 < a.amount && math.MaxInt64/10 < a.amount {
+			return false // overflow
+		} else if a.amount < 0 && a.amount < math.MinInt64/10 {
+			return false // underflow
+		}
+		a.amount *= 10
+		a.digits++
+	}
+	for b.digits < a.digits {
+		if 0 < b.amount && math.MaxInt64/10 < b.amount {
+			return false // overflow
+		} else if b.amount < 0 && b.amount < math.MinInt64/10 {
+			return false // underflow
+		}
+		b.amount *= 10
+		b.digits++
+	}
+	return a.amount == b.amount
 }
 
 // Zero returns the zero value for the amount (keep the currency).
@@ -106,8 +131,12 @@ func (a Amount) IsZero() bool {
 	return a.amount == 0
 }
 
-func (a Amount) IsNeg() bool {
+func (a Amount) IsNegative() bool {
 	return a.amount < 0
+}
+
+func (a Amount) IsPositive() bool {
+	return 0 < a.amount
 }
 
 // bankersRounding performs bankers rounding, with amount the original amount, and prec the number
@@ -115,6 +144,9 @@ func (a Amount) IsNeg() bool {
 // last digit is > 5, the preceding digit is increased, and when the last digit = 5 the preceding
 // digit will increase by 1 only when it is uneven.
 func bankersRounding(amount int64, prec int) int64 {
+	if prec <= 0 {
+		return amount
+	}
 	shift := int64(0)
 	scale := int64Scales[prec]
 	if carry := (amount / (scale / 10)) % 10; carry == 5 {
@@ -199,11 +231,11 @@ func (a Amount) Mul(f int) Amount {
 	// TODO: is this right?
 	if 1 < f && 0 < a.amount && math.MaxInt64/int64(f) < a.amount {
 		panic("overflow")
+	} else if 1 < f && a.amount < 0 && a.amount < math.MinInt64/int64(f) {
+		panic("underflow")
 	} else if f < -1 && a.amount < 0 && math.MaxInt64/int64(-f) < -a.amount {
 		panic("overflow")
 	} else if f < -1 && 0 < a.amount && math.MinInt64/int64(f) < a.amount {
-		panic("underflow")
-	} else if 1 < f && a.amount < 0 && math.MinInt64/int64(-f) < -a.amount {
 		panic("underflow")
 	}
 	a.amount *= int64(f)
@@ -416,6 +448,27 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 		locale = GetLocale(languager.Language())
 	}
 
+	// parse trailing .00 (force decimals) or .99 (allow decimals)
+	minDecimals, maxDecimals := 0, f.Amount.digits
+	if dot := strings.IndexByte(f.Layout, '.'); dot == len(f.Layout)-1 {
+		minDecimals = f.Amount.digits
+		f.Layout = f.Layout[:dot]
+	} else if dot != -1 {
+		maxDecimals = 0
+		for _, c := range f.Layout[dot+1:] {
+			if c == '0' {
+				maxDecimals++
+				minDecimals = maxDecimals
+			} else if c == '9' {
+				maxDecimals++
+			} else {
+				log.Printf("INFO: locale: unsupported currency format: %v\n", f.Layout)
+				break
+			}
+		}
+		f.Layout = f.Layout[:dot]
+	}
+
 	unit := f.Unit.String()
 	var symbol, pattern string
 	switch f.Layout {
@@ -446,7 +499,7 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 	}
 
 	if idx := strings.IndexByte(pattern, ';'); idx != -1 {
-		if f.Amount.IsNeg() {
+		if f.Amount.IsNegative() {
 			pattern = pattern[idx+1:]
 			f.Amount = f.Amount.Neg()
 		} else {
@@ -454,9 +507,16 @@ func (f AmountFormatter) Format(state fmt.State, verb rune) {
 		}
 	}
 
-	a := f.Amount.round(f.rounding)
-	dec := f.digits
-	amount := a.amount / int64Scales[AmountPrecision]
+	var amount int64
+	if prec := AmountPrecision + f.Amount.digits - maxDecimals; 0 < prec {
+		amount = bankersRounding(f.Amount.amount, prec)
+		amount /= int64Scales[prec]
+	}
+	dec := maxDecimals
+	for minDecimals < dec && amount%10 == 0 {
+		amount /= 10
+		dec--
+	}
 
 	var b []byte
 	for i := 0; i < len(pattern); {

@@ -1,6 +1,7 @@
 package locale
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/tdewolff/test"
@@ -93,6 +94,48 @@ func TestAmountScanValue(t *testing.T) {
 			err := amount.Scan(tt.s)
 			test.Error(t, err)
 			v, _ := amount.Value()
+			test.T(t, v, tt.r)
+		})
+	}
+}
+
+func TestAmountFormat(t *testing.T) {
+	var tests = []struct {
+		f string
+		s string
+		r string
+	}{
+		{"100", "USD16.00", "16"},
+		{"US$ 100", "USD16.00", "US$\u00A016"},
+		{"USD 100", "USD16.00", "USD\u00A016"},
+		{"$100", "USD16.00", "$\u00A016"},
+		{"100", "EUR16.00", "16"},
+		{"US$ 100", "EUR16.00", "€\u00A016"},
+		{"USD 100", "EUR16.00", "EUR\u00A016"},
+		{"$100", "EUR16.00", "€\u00A016"},
+		{"$100", "EUR16.01", "€\u00A016.01"},
+		{"$100", "EUR16.001", "€\u00A016"},
+		{"$100.", "EUR16.00", "€\u00A016.00"},
+		{"$100.", "EUR16.01", "€\u00A016.01"},
+		{"$100.", "EUR16.001", "€\u00A016.00"},
+		{"$100.0", "EUR16.00", "€\u00A016.0"},
+		{"$100.0", "EUR16.06", "€\u00A016.1"},
+		{"$100.00", "EUR16.00", "€\u00A016.00"},
+		{"$100.00", "EUR16.006", "€\u00A016.01"},
+		{"$100.9", "EUR16.00", "€\u00A016"},
+		{"$100.9", "EUR16.06", "€\u00A016.1"},
+		{"$100.99", "EUR16.00", "€\u00A016"},
+		{"$100.99", "EUR16.006", "€\u00A016.01"},
+		{"$100.99", "EUR16.10", "€\u00A016.1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.s, func(t *testing.T) {
+			var amount Amount
+			err := amount.Scan(tt.s)
+			test.Error(t, err)
+
+			v := fmt.Sprintf("%v", AmountFormatter{amount, tt.f})
 			test.T(t, v, tt.r)
 		})
 	}

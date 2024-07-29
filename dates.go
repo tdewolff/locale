@@ -127,30 +127,6 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 	}
 
 	layoutPattern := layoutToPattern(f.Layout)
-	intervalFormatItem := locale.DatetimeIntervalFormat[layoutPattern]
-	if intervalFormatItem == nil {
-		pattern := locale.DatetimeIntervalFormat[""][""]
-		from := (TimeFormatter{Time: f.From, Layout: f.Layout})
-		to := (TimeFormatter{Time: f.To, Layout: f.Layout})
-		i := 0
-		for j := 0; j < len(pattern); {
-			if strings.HasPrefix(pattern[j:], "{0}") {
-				state.Write([]byte(pattern[i:j]))
-				from.Format(state, verb)
-				j += 3
-				i = j
-			} else if strings.HasPrefix(pattern[j:], "{1}") {
-				state.Write([]byte(pattern[i:j]))
-				to.Format(state, verb)
-				j += 3
-				i = j
-			} else {
-				j++
-			}
-		}
-		state.Write([]byte(pattern[i:]))
-		return
-	}
 
 	var greatestDifference string
 	if f.From.Year() != f.To.Year() {
@@ -171,6 +147,71 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 		greatestDifference = "s"
 	}
 
+	intervalFormatItem, ok := locale.DatetimeIntervalFormat[layoutPattern]
+	if !ok && (greatestDifference == "H" || greatestDifference == "h" || greatestDifference == "m" || greatestDifference == "s") {
+		// TODO: handle literal strings in single quotes
+		// TODO: very hacky
+		// split date and time when pattern doesn't exist
+		if sep := strings.Index(f.Layout, "15:"); sep != -1 {
+			sep2 := sep - 1
+			for 0 < sep2 && (f.Layout[sep2] == ' ' || f.Layout[sep2] == ',') {
+				sep2--
+			}
+
+			pattern := locale.DatetimeFormat.Short
+			date := TimeFormatter{Time: f.From, Layout: f.Layout[:sep2+1]}
+			layoutPattern2 := layoutToPattern(f.Layout[sep:])
+			intervalFormatItem2, ok := locale.DatetimeIntervalFormat[layoutPattern2]
+			if ok {
+				i := 0
+				for j := 0; j < len(pattern); {
+					if strings.HasPrefix(pattern[j:], "{0}") {
+						state.Write([]byte(pattern[i:j]))
+						formatInterval(state, locale, f.From, f.To, intervalFormatItem2, greatestDifference)
+						j += 3
+						i = j
+					} else if strings.HasPrefix(pattern[j:], "{1}") {
+						state.Write([]byte(pattern[i:j]))
+						date.Format(state, verb)
+						j += 3
+						i = j
+					} else {
+						j++
+					}
+				}
+				return
+			}
+		}
+	}
+
+	if !ok {
+		// no pattern exists, write out interval in the long format
+		pattern := locale.DatetimeIntervalFormat[""][""]
+		from := TimeFormatter{Time: f.From, Layout: f.Layout}
+		to := TimeFormatter{Time: f.To, Layout: f.Layout}
+		i := 0
+		for j := 0; j < len(pattern); {
+			if strings.HasPrefix(pattern[j:], "{0}") {
+				state.Write([]byte(pattern[i:j]))
+				from.Format(state, verb)
+				j += 3
+				i = j
+			} else if strings.HasPrefix(pattern[j:], "{1}") {
+				state.Write([]byte(pattern[i:j]))
+				to.Format(state, verb)
+				j += 3
+				i = j
+			} else {
+				j++
+			}
+		}
+		state.Write([]byte(pattern[i:]))
+		return
+	}
+	formatInterval(state, locale, f.From, f.To, intervalFormatItem, greatestDifference)
+}
+
+func formatInterval(state fmt.State, locale Locale, from, to time.Time, intervalFormatItem map[string]string, greatestDifference string) {
 	pattern, ok := intervalFormatItem[greatestDifference]
 	if !ok {
 		greatestDifference = "s"
@@ -203,9 +244,9 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 			i = j - 1
 		default:
 			// TODO: doesnt handle repeating mixed format and standalone fields
-			t := f.From
+			t := from
 			if handled[pattern[i]] {
-				t = f.To
+				t = to
 			}
 			handled[pattern[i]] = true
 
@@ -221,6 +262,7 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 }
 
 func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([]byte, int) {
+	// TODO: handle literal characters (in single quotes)
 	switch pattern[0] {
 	case 'G', 'y', 'M', 'L', 'E', 'c', 'd', 'h', 'H', 'K', 'k', 'm', 's', 'a', 'b', 'B', 'z', 'v', 'Q':
 		n := 1
@@ -306,6 +348,7 @@ func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([
 }
 
 func layoutToPattern(layout string) string {
+	// TODO: write unknown character (literal) in single quotes
 	sb := strings.Builder{}
 	for i := 0; i < len(layout); {
 		if strings.HasPrefix(layout[i:], "6") {
