@@ -139,6 +139,11 @@ func main() {
 				for k, v := range parentLocale.Unit {
 					locale.Unit[k] = v
 				}
+
+				locale.Territory = make(map[string]string, len(parentLocale.Territory))
+				for k, v := range parentLocale.Territory {
+					locale.Territory[k] = v
+				}
 			}
 		}
 

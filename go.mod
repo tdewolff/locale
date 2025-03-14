@@ -1,11 +1,13 @@
 module github.com/tdewolff/locale
 
-go 1.21.2
+go 1.23.0
+
+toolchain go1.24.1
 
 replace github.com/tdewolff/parse/v2 => ../parse
 
 require (
-	github.com/tdewolff/parse/v2 v2.7.15
-	github.com/tdewolff/test v1.0.11-0.20231101010635-f1265d231d52
-	golang.org/x/text v0.16.0
+	github.com/tdewolff/parse/v2 v2.7.20
+	github.com/tdewolff/test v1.0.11
+	golang.org/x/text v0.23.0
 )

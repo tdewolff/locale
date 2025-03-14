@@ -13,10 +13,10 @@ import (
 
 // Available time layouts, otherwise falls back to time.Time.Format and translates the individual parts. The order and punctuation may not be in accordance with locale in that case. You can combine any date with time layout by concatenation: {date} + space + {time}
 const (
-	DateFull   string = "2006 January 2, Monday"
-	DateLong          = "2006 January 2"
-	DateMedium        = "2006 Jan. 2"
-	DateShort         = "2006-01-02"
+	DateFull   string = "Monday, January 2, 2006"
+	DateLong          = "January 2, 2006"
+	DateMedium        = "Jan. 2, 2006"
+	DateShort         = "1/2/06"
 	TimeFull          = "15:04:05 Mountain Standard Time"
 	TimeLong          = "15:04:05 MST"
 	TimeMedium        = "15:04:05"
@@ -34,7 +34,7 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 		locale = GetLocale(languager.Language())
 	}
 
-	idxSep := -1
+	idxSep := len(f.Layout)
 	var datePattern string
 	if strings.HasPrefix(f.Layout, DateFull) {
 		datePattern = locale.DateFormat.Full
@@ -52,10 +52,19 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 
 	var timePattern string
 	if idxSep < len(f.Layout) {
-		if idxSep != -1 && f.Layout[idxSep] != ' ' {
+		idxTime := idxSep
+		if strings.HasPrefix(f.Layout[idxSep:], " at ") {
+			idxTime += 4
+		} else if strings.HasPrefix(f.Layout[idxSep:], ", ") {
+			idxTime += 2
+		} else if strings.HasPrefix(f.Layout[idxSep:], " ") {
+			idxTime += 1
+		}
+
+		if idxTime == idxSep {
 			datePattern = layoutToPattern(f.Layout)
 		} else {
-			switch f.Layout[idxSep+1:] {
+			switch f.Layout[idxTime:] {
 			case TimeFull:
 				timePattern = locale.TimeFormat.Full
 			case TimeLong:
@@ -65,7 +74,7 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 			case TimeShort:
 				timePattern = locale.TimeFormat.Short
 			default:
-				timePattern = layoutToPattern(f.Layout[idxSep+1:])
+				timePattern = layoutToPattern(f.Layout[idxTime:])
 			}
 		}
 	}
@@ -86,8 +95,10 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 		pattern = strings.ReplaceAll(pattern, "{1}", datePattern)
 	} else if datePattern != "" {
 		pattern = datePattern
+	} else if timePattern != "" {
+		pattern = timePattern
 	} else {
-		pattern = timePattern // can be empty
+		pattern = layoutToPattern(f.Layout)
 	}
 
 	var b []byte
@@ -105,7 +116,11 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 			i = j - 1
 		default:
 			var m int
-			if b, m = formatDatetimeItem(b, pattern[i:], locale, f.Time); m != 0 {
+			var ok bool
+			if b, m, ok = formatDatetimeItem(b, pattern[i:], locale, f.Time); !ok {
+				state.Write([]byte(f.Time.Format(f.Layout)))
+				return
+			} else if m != 0 {
 				i += m - 1
 			} else {
 				b = append(b, pattern[i])
@@ -251,7 +266,9 @@ func formatInterval(state fmt.State, locale Locale, from, to time.Time, interval
 			handled[pattern[i]] = true
 
 			var m int
-			if b, m = formatDatetimeItem(b, pattern[i:], locale, t); m != 0 {
+			if b, m, ok = formatDatetimeItem(b, pattern[i:], locale, t); !ok {
+				log.Printf("INFO: locale: unsupported date/time format: %v\n", pattern[:m])
+			} else if m != 0 {
 				i += m - 1
 			} else {
 				b = append(b, pattern[i])
@@ -261,7 +278,7 @@ func formatInterval(state fmt.State, locale Locale, from, to time.Time, interval
 	state.Write(b)
 }
 
-func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([]byte, int) {
+func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([]byte, int, bool) {
 	// TODO: handle literal characters (in single quotes)
 	switch pattern[0] {
 	case 'G', 'y', 'M', 'L', 'E', 'c', 'd', 'h', 'H', 'K', 'k', 'm', 's', 'a', 'b', 'B', 'z', 'v', 'Q':
@@ -340,11 +357,11 @@ func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([
 				b = b[:len(b)-3]
 			}
 		default:
-			log.Printf("INFO: locale: unsupported date/time format: %v\n", pattern[:n])
+			return b, n, false
 		}
-		return b, n
+		return b, n, true
 	}
-	return b, 0
+	return b, 0, true
 }
 
 func layoutToPattern(layout string) string {

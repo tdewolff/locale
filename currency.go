@@ -96,27 +96,35 @@ func NewAmountFromFloat64(unit currency.Unit, amount float64) Amount {
 	return Amount{unit, a, cur.Digits, cur.Rounding}
 }
 
-func (a Amount) Equals(b Amount) bool {
-	if a.Unit != b.Unit {
-		return false
-	}
+func normaliseAmounts(a, b Amount) (Amount, Amount, bool) {
 	for a.digits < b.digits {
 		if 0 < a.amount && math.MaxInt64/10 < a.amount {
-			return false // overflow
+			return a, b, false // overflow
 		} else if a.amount < 0 && a.amount < math.MinInt64/10 {
-			return false // underflow
+			return a, b, false // underflow
 		}
 		a.amount *= 10
 		a.digits++
 	}
 	for b.digits < a.digits {
 		if 0 < b.amount && math.MaxInt64/10 < b.amount {
-			return false // overflow
+			return a, b, false // overflow
 		} else if b.amount < 0 && b.amount < math.MinInt64/10 {
-			return false // underflow
+			return a, b, false // underflow
 		}
 		b.amount *= 10
 		b.digits++
+	}
+	return a, b, true
+}
+
+func (a Amount) Equals(b Amount) bool {
+	if a.Unit != b.Unit {
+		return false
+	}
+	var ok bool
+	if a, b, ok = normaliseAmounts(a, b); !ok {
+		return false
 	}
 	return a.amount == b.amount
 }
@@ -252,6 +260,17 @@ func (a Amount) Div(f int) Amount {
 	return a
 }
 
+func (a Amount) DivAmount(b Amount) float64 {
+	if a.Unit != b.Unit {
+		return math.NaN()
+	}
+	var ok bool
+	if a, b, ok = normaliseAmounts(a, b); !ok {
+		return math.NaN()
+	}
+	return float64(a.amount) / float64(b.amount)
+}
+
 func (a Amount) Mulf(f float64) Amount {
 	// TODO: is this right?
 	incr := 1.0 < f && 0 < a.amount || f < -1.0 && a.amount < 0
@@ -269,16 +288,16 @@ func (a Amount) Float64() float64 {
 	return float64(a.amount) / math.Pow10(a.digits+AmountPrecision)
 }
 
+func (a Amount) Amount() (int64, int) {
+	return a.amount, a.digits + AmountPrecision
+}
+
 func (a Amount) AmountRounded() (int64, int) {
 	a = a.round(1)
 	return a.amount / int64Scales[AmountPrecision], a.digits
 }
 
-func (a Amount) Amount() (int64, int) {
-	return a.amount, a.digits + AmountPrecision
-}
-
-func (a Amount) String() string {
+func (a Amount) StringAmount() string {
 	var b []byte
 	amount, dec := a.Amount()
 	b = strconv.AppendNumber(b, amount, dec, 0, 0, '.')
@@ -292,14 +311,14 @@ func (a Amount) String() string {
 			b = b[:len(b)-1]
 		}
 	}
-	return a.Unit.String() + string(b)
+	return string(b)
 }
 
-func (a Amount) StringRounded() string {
+func (a Amount) String() string {
 	var b []byte
 	amount, dec := a.AmountRounded()
-	b = strconv.AppendNumber(b, amount, dec, 0, 0, '.')
-	return a.Unit.String() + string(b)
+	b = strconv.AppendNumber(b, amount, dec, 3, ',', '.')
+	return a.Unit.String() + " " + string(b)
 }
 
 func (a *Amount) Scan(isrc interface{}) error {
@@ -321,7 +340,7 @@ func (a *Amount) Scan(isrc interface{}) error {
 	}
 	unit, err := currency.ParseISO(string(b[:3]))
 	if err != nil {
-		return fmt.Errorf("invalid amount: %v", err)
+		return fmt.Errorf("%v: %v", err, string(b))
 	}
 	i := 3
 	if b[i] == ' ' {
@@ -336,7 +355,7 @@ func (a *Amount) Scan(isrc interface{}) error {
 }
 
 func (a Amount) Value() (driver.Value, error) {
-	return a.String(), nil
+	return a.Unit.String() + a.StringAmount(), nil
 }
 
 type NullAmount struct {
@@ -428,7 +447,7 @@ func (f CurrencyFormatter) Format(state fmt.State, verb rune) {
 	state.Write([]byte(s))
 }
 
-// Available currency formats
+// Available currency formats. A trailing . will add the appropriate number of decimals for that language/currency. Any additional zeros will indicate the minimum number of decimals, while additional nines indices the maximum number of decimals. Thus "USD 100.09" would always print at least one decimal, but at most two and only if the second decimal is non-zero.
 // TODO: support accounting formats?
 const (
 	CurrencyAmount   string = "100"

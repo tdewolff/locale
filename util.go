@@ -11,9 +11,9 @@ type Languager interface {
 	Language() language.Tag
 }
 
-func GetLocale(tag language.Tag) Locale {
+func GetSupportedTag(tag language.Tag) language.Tag {
 	loc := strings.ReplaceAll(tag.String(), "-", "_")
-	d, ok := locales[loc]
+	_, ok := locales[loc]
 	for !ok && loc != "root" {
 		tag = tag.Parent()
 		if tag == language.Und {
@@ -21,9 +21,15 @@ func GetLocale(tag language.Tag) Locale {
 		} else {
 			loc = strings.ReplaceAll(tag.String(), "-", "_")
 		}
-		d, ok = locales[loc]
+		_, ok = locales[loc]
 	}
-	return d
+	return language.Make(loc)
+}
+
+func GetLocale(tag language.Tag) Locale {
+	tag = GetSupportedTag(tag)
+	loc := strings.ReplaceAll(tag.String(), "-", "_")
+	return locales[loc]
 }
 
 func GetCurrency(unit currency.Unit) CurrencyInfo {

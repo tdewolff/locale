@@ -161,6 +161,7 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 		return
 	} else if f.Duration < 0 {
 		b = append(b, '-')
+		f.Duration = -f.Duration
 	}
 
 	num := int64(f.Duration)
@@ -185,7 +186,7 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 				pattern = count.One
 			}
 			pattern = strings.ReplaceAll(pattern, "{0}", fmt.Sprintf("%d", v))
-			if 0 < len(b) {
+			if 1 < len(b) {
 				b = append(b, ' ')
 			}
 			b = append(b, []byte(pattern)...)

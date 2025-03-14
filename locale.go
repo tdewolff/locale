@@ -81,6 +81,8 @@ func (p *Printer) T(a ...any) string {
 			return p.Sprintf("%v", DecimalFormatter{float64(v)})
 		case float64:
 			return p.Sprintf("%v", DecimalFormatter{v})
+		case language.Region:
+			return p.Sprintf("%v", RegionFormatter{v})
 		}
 	}
 	return p.Sprint(a...)
