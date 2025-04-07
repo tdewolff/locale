@@ -1,6 +1,7 @@
 package locale
 
 import (
+	"reflect"
 	"time"
 
 	"golang.org/x/text/currency"
@@ -14,6 +15,8 @@ type Printer struct {
 	LanguageTag language.Tag
 	Location    *time.Location
 }
+
+var _ = reflect.TypeOf(Printer{}) // no garble
 
 func NewPrinter(t language.Tag, loc *time.Location) *Printer {
 	return &Printer{
