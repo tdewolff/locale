@@ -10,9 +10,10 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/tdewolff/parse/v2/strconv"
 	"golang.org/x/text/currency"
 	"golang.org/x/text/language"
+
+	"github.com/tdewolff/parse/v2/strconv"
 )
 
 // AmountPrecision is the number of extra decimals after the currency's default number of digits
@@ -369,6 +370,9 @@ func (n *NullAmount) Scan(value any) error {
 		n.Amount, n.Valid = Amount{}, false
 		return nil
 	} else if s, ok := value.(string); ok && s == "" {
+		n.Amount, n.Valid = Amount{}, false
+		return nil
+	} else if b, ok := value.([]byte); ok && len(b) == 0 {
 		n.Amount, n.Valid = Amount{}, false
 		return nil
 	}

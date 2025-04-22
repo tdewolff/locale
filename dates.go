@@ -433,10 +433,10 @@ func layoutToPattern(layout string) string {
 			sb.WriteString("mm")
 			i += 2
 		} else if strings.HasPrefix(layout[i:], "5") {
-			sb.WriteString("m")
+			sb.WriteString("s")
 			i += 1
 		} else if strings.HasPrefix(layout[i:], "05") {
-			sb.WriteString("mm")
+			sb.WriteString("ss")
 			i += 2
 		} else if strings.HasPrefix(layout[i:], "MST-07:00") {
 			sb.WriteString("ZZZZ")
