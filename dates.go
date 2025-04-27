@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	parseStrconv "github.com/tdewolff/parse/v2/strconv"
 )
@@ -102,8 +103,9 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 	}
 
 	var b []byte
-	for i := 0; i < len(pattern); i++ {
-		switch pattern[i] {
+	for i := 0; i < len(pattern); {
+		r, n := utf8.DecodeRuneInString(pattern[i:])
+		switch r {
 		case '\'':
 			j := i + 1
 			for j < len(pattern) {
@@ -113,7 +115,7 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 				j++
 			}
 			b = append(b, pattern[i+1:j]...)
-			i = j - 1
+			i = j + 1
 		default:
 			var m int
 			var ok bool
@@ -121,9 +123,10 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 				state.Write([]byte(f.Time.Format(f.Layout)))
 				return
 			} else if m != 0 {
-				i += m - 1
+				i += m
 			} else {
-				b = append(b, pattern[i])
+				b = utf8.AppendRune(b, r)
+				i += n
 			}
 		}
 	}
@@ -164,7 +167,6 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 
 	intervalFormatItem, ok := locale.DatetimeIntervalFormat[layoutPattern]
 	if !ok && (greatestDifference == "H" || greatestDifference == "h" || greatestDifference == "m" || greatestDifference == "s") {
-		// TODO: handle literal strings in single quotes
 		// TODO: very hacky
 		// split date and time when pattern doesn't exist
 		if sep := strings.Index(f.Layout, "15:"); sep != -1 {
@@ -173,10 +175,27 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 				sep2--
 			}
 
-			pattern := locale.DatetimeFormat.Short
+			var pattern, timePattern string
+			switch f.Layout[:sep2+1] {
+			case DateFull:
+				pattern = locale.DatetimeFormat.Full
+				timePattern = locale.TimeFormat.Full
+			case DateLong:
+				pattern = locale.DatetimeFormat.Long
+				timePattern = locale.TimeFormat.Long
+			case DateMedium:
+				pattern = locale.DatetimeFormat.Medium
+				timePattern = locale.TimeFormat.Medium
+			case DateShort:
+				pattern = locale.DatetimeFormat.Short
+				timePattern = locale.TimeFormat.Short
+			default:
+				pattern = locale.DatetimeFormat.Short
+				timePattern = layoutToPattern(f.Layout[sep:])
+			}
+
 			date := TimeFormatter{Time: f.From, Layout: f.Layout[:sep2+1]}
-			layoutPattern2 := layoutToPattern(f.Layout[sep:])
-			intervalFormatItem2, ok := locale.DatetimeIntervalFormat[layoutPattern2]
+			intervalFormatItem2, ok := locale.DatetimeIntervalFormat[timePattern]
 			if ok {
 				i := 0
 				for j := 0; j < len(pattern); {
@@ -245,8 +264,9 @@ func formatInterval(state fmt.State, locale Locale, from, to time.Time, interval
 
 	var b []byte
 	handled := map[byte]bool{}
-	for i := 0; i < len(pattern); i++ {
-		switch pattern[i] {
+	for i := 0; i < len(pattern); {
+		r, n := utf8.DecodeRuneInString(pattern[i:])
+		switch r {
 		case '\'':
 			j := i + 1
 			for j < len(pattern) {
@@ -256,7 +276,7 @@ func formatInterval(state fmt.State, locale Locale, from, to time.Time, interval
 				j++
 			}
 			b = append(b, pattern[i+1:j]...)
-			i = j - 1
+			i = j + 1
 		default:
 			// TODO: doesnt handle repeating mixed format and standalone fields
 			t := from
@@ -269,9 +289,10 @@ func formatInterval(state fmt.State, locale Locale, from, to time.Time, interval
 			if b, m, ok = formatDatetimeItem(b, pattern[i:], locale, t); !ok {
 				log.Printf("INFO: locale: unsupported date/time format: %v\n", pattern[:m])
 			} else if m != 0 {
-				i += m - 1
+				i += m
 			} else {
-				b = append(b, pattern[i])
+				b = utf8.AppendRune(b, r)
+				i += n
 			}
 		}
 	}
@@ -342,6 +363,8 @@ func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([
 			b = t.AppendFormat(b, "05")
 		case "z", "zz", "zzz":
 			b = t.AppendFormat(b, "MST")
+		case "zzzz":
+			b = t.AppendFormat(b, "MST") // TODO: should be longer: Mountain Standard Time
 		case "Z", "ZZ", "ZZZ":
 			b = t.AppendFormat(b, "-0700")
 		case "ZZZZ":

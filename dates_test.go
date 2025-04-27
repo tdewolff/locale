@@ -32,3 +32,47 @@ func TestScanTime(t *testing.T) {
 		})
 	}
 }
+
+func TestTimeFormatter(t *testing.T) {
+	tests := []struct {
+		p      *Printer
+		layout string
+		t      time.Time
+		str    string
+	}{
+		{en, "Monday, January 2, 2006 15:04:05 Mountain Standard Time", time.Date(2025, 1, 2, 12, 30, 0, 0, tzPST), "Thursday, January 2, 2025 at 12:30:00\u202Fpm Pacific Standard Time"},
+		{en, "January 2, 2006 15:04:05 MST", time.Date(2025, 1, 2, 12, 30, 0, 0, tzPST), "January 2, 2025 at 12:30:00\u202Fpm PST"},
+		{en, "Jan. 2, 2006 15:04:05", time.Date(2025, 1, 2, 12, 30, 0, 0, tzPST), "Jan 2, 2025, 12:30:00\u202Fpm"},
+		{en, "1/2/06 15:04", time.Date(2025, 1, 2, 12, 30, 0, 0, tzPST), "1/2/25, 12:30\u202Fpm"},
+
+		{es, "Monday, January 2, 2006 15:04:05 Mountain Standard Time", time.Date(2025, 1, 2, 12, 30, 0, 0, tzCET), "jueves, 2 de enero de 2025, 12:30:00 (hora de Europa central)"},
+		{es, "January 2, 2006 15:04:05 MST", time.Date(2025, 1, 2, 12, 30, 0, 0, tzCET), "2 de enero de 2025, 12:30:00 CET"},
+		{es, "Jan. 2, 2006 15:04:05", time.Date(2025, 1, 2, 12, 30, 0, 0, tzCET), "2 ene 2025, 12:30:00"},
+		{es, "1/2/06 15:04", time.Date(2025, 1, 2, 12, 30, 0, 0, tzCET), "2/1/25, 12:30"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.str, func(t *testing.T) {
+			test.T(t, tt.p.T(tt.t, tt.layout), tt.str)
+		})
+	}
+}
+
+func TestIntervalFormatter(t *testing.T) {
+	tests := []struct {
+		p          *Printer
+		layout     string
+		start, end time.Time
+		str        string
+	}{
+		{en, "Monday, January 2, 2006 15:04:05 Mountain Standard Time", time.Date(2025, 1, 2, 12, 30, 0, 0, tzPST), time.Date(2025, 1, 2, 12, 34, 0, 0, tzPST), "Thursday, January 2, 2025 at 12:30:00\u2009–\u200912:34:00\u202Fpm Pacific Standard Time"},
+		{en, "January 2, 2006 15:04:05 MST", time.Date(2025, 1, 2, 12, 30, 0, 0, tzPST), time.Date(2025, 1, 2, 12, 34, 0, 0, tzPST), "January 2, 2025 at 12:30:00\u2009–\u200912:34:00\u202Fpm PST"},
+		{en, "Jan. 2, 2006 15:04:05", time.Date(2025, 1, 2, 12, 30, 0, 0, tzPST), time.Date(2025, 1, 2, 12, 34, 0, 0, tzPST), "Jan 2, 2025, 12:30:00\u2009–\u200912:34:00\u202Fpm"},
+		{en, "1/2/06 15:04", time.Date(2025, 1, 2, 12, 30, 0, 0, tzPST), time.Date(2025, 1, 2, 12, 34, 0, 0, tzPST), "1/2/25, 12:30\u2009–\u200912:34\u202Fpm"},
+		{en, "1/2/06 15:04", time.Date(2025, 1, 2, 11, 30, 0, 0, tzPST), time.Date(2025, 1, 2, 12, 34, 0, 0, tzPST), "1/2/25, 11:30\u202Fam\u2009–\u200912:34\u202Fpm"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.str, func(t *testing.T) {
+			test.T(t, tt.p.T(tt.start, tt.end, tt.layout), tt.str)
+		})
+	}
+}

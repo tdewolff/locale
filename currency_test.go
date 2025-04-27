@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/tdewolff/test"
 	"golang.org/x/text/currency"
+
+	"github.com/tdewolff/test"
 )
 
 var EUR = currency.EUR
@@ -16,20 +17,20 @@ func TestNewAmountFromFloat64(t *testing.T) {
 		f   float64
 		r   string
 	}{
-		{EUR, 16, "EUR16"},
-		{EUR, 16.5, "EUR16.5"},
-		{EUR, 16.50, "EUR16.5"},
-		{EUR, 16.51234, "EUR16.51234"},
-		{EUR, 16.512344, "EUR16.51234"},
-		{EUR, 16.512346, "EUR16.51235"},
-		{EUR, 16.512345, "EUR16.51234"},
-		{EUR, 16.512355, "EUR16.51236"},
+		{EUR, 16, "EUR 16"},
+		{EUR, 16.5, "EUR 16.5"},
+		{EUR, 16.50, "EUR 16.5"},
+		{EUR, 16.51234, "EUR 16.51234"},
+		{EUR, 16.512344, "EUR 16.51234"},
+		{EUR, 16.512346, "EUR 16.51235"},
+		{EUR, 16.512345, "EUR 16.51234"},
+		{EUR, 16.512355, "EUR 16.51236"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.r, func(t *testing.T) {
 			amount := NewAmountFromFloat64(tt.cur, tt.f)
-			test.T(t, amount.String(), tt.r)
+			test.T(t, amount.Unit.String()+" "+amount.StringAmount(), tt.r)
 		})
 	}
 }
@@ -40,20 +41,20 @@ func TestAmountRounded(t *testing.T) {
 		a   string
 		r   string
 	}{
-		{EUR, "16", "EUR16.00"},
-		{EUR, "16.5", "EUR16.50"},
-		{EUR, "16.50", "EUR16.50"},
-		{EUR, "16.505", "EUR16.50"},
-		{EUR, "16.506", "EUR16.51"},
-		{EUR, "16.514", "EUR16.51"},
-		{EUR, "16.515", "EUR16.52"},
+		{EUR, "16", "EUR 16.00"},
+		{EUR, "16.5", "EUR 16.50"},
+		{EUR, "16.50", "EUR 16.50"},
+		{EUR, "16.505", "EUR 16.50"},
+		{EUR, "16.506", "EUR 16.51"},
+		{EUR, "16.514", "EUR 16.51"},
+		{EUR, "16.515", "EUR 16.52"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.a, func(t *testing.T) {
 			amount, err := ParseAmount(tt.cur, tt.a)
 			test.Error(t, err)
-			test.T(t, amount.StringRounded(), tt.r)
+			test.T(t, amount.String(), tt.r)
 		})
 	}
 }

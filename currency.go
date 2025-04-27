@@ -97,39 +97,6 @@ func NewAmountFromFloat64(unit currency.Unit, amount float64) Amount {
 	return Amount{unit, a, cur.Digits, cur.Rounding}
 }
 
-func normaliseAmounts(a, b Amount) (Amount, Amount, bool) {
-	for a.digits < b.digits {
-		if 0 < a.amount && math.MaxInt64/10 < a.amount {
-			return a, b, false // overflow
-		} else if a.amount < 0 && a.amount < math.MinInt64/10 {
-			return a, b, false // underflow
-		}
-		a.amount *= 10
-		a.digits++
-	}
-	for b.digits < a.digits {
-		if 0 < b.amount && math.MaxInt64/10 < b.amount {
-			return a, b, false // overflow
-		} else if b.amount < 0 && b.amount < math.MinInt64/10 {
-			return a, b, false // underflow
-		}
-		b.amount *= 10
-		b.digits++
-	}
-	return a, b, true
-}
-
-func (a Amount) Equals(b Amount) bool {
-	if a.Unit != b.Unit {
-		return false
-	}
-	var ok bool
-	if a, b, ok = normaliseAmounts(a, b); !ok {
-		return false
-	}
-	return a.amount == b.amount
-}
-
 // Zero returns the zero value for the amount (keep the currency).
 func (a Amount) Zero() Amount {
 	a.amount = 0
@@ -146,6 +113,50 @@ func (a Amount) IsNegative() bool {
 
 func (a Amount) IsPositive() bool {
 	return 0 < a.amount
+}
+
+// normaliseAmounts returns the amounts of both number that are comparable, ie. they have the same unit are are in the same magnitude.
+func normaliseAmounts(a, b Amount) (int64, int64, bool) {
+	if a.Unit != b.Unit {
+		return 0, 0, false
+	}
+	for a.digits < b.digits {
+		if 0 < a.amount && math.MaxInt64/10 < a.amount {
+			return 0, 0, false // overflow
+		} else if a.amount < 0 && a.amount < math.MinInt64/10 {
+			return 0, 0, false // underflow
+		}
+		a.amount *= 10
+		a.digits++
+	}
+	for b.digits < a.digits {
+		if 0 < b.amount && math.MaxInt64/10 < b.amount {
+			return 0, 0, false // overflow
+		} else if b.amount < 0 && b.amount < math.MinInt64/10 {
+			return 0, 0, false // underflow
+		}
+		b.amount *= 10
+		b.digits++
+	}
+	return a.amount, b.amount, true
+}
+
+func (a Amount) Equals(b Amount) bool {
+	A, B, ok := normaliseAmounts(a, b)
+	if !ok {
+		return false
+	}
+	return A == B
+}
+
+func (a Amount) Compare(b Amount) int {
+	A, B, ok := normaliseAmounts(a, b)
+	if !ok {
+		return 0
+	} else if A < B {
+		return -1
+	}
+	return 1
 }
 
 // bankersRounding performs bankers rounding, with amount the original amount, and prec the number
@@ -262,14 +273,11 @@ func (a Amount) Div(f int) Amount {
 }
 
 func (a Amount) DivAmount(b Amount) float64 {
-	if a.Unit != b.Unit {
+	A, B, ok := normaliseAmounts(a, b)
+	if !ok {
 		return math.NaN()
 	}
-	var ok bool
-	if a, b, ok = normaliseAmounts(a, b); !ok {
-		return math.NaN()
-	}
-	return float64(a.amount) / float64(b.amount)
+	return float64(A) / float64(B)
 }
 
 func (a Amount) Mulf(f float64) Amount {
