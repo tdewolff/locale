@@ -69,6 +69,8 @@ func TestIntervalFormatter(t *testing.T) {
 		{en, "Jan. 2, 2006 15:04:05", time.Date(2025, 1, 2, 12, 30, 0, 0, tzPST), time.Date(2025, 1, 2, 12, 34, 0, 0, tzPST), "Jan 2, 2025, 12:30:00\u2009–\u200912:34:00\u202Fpm"},
 		{en, "1/2/06 15:04", time.Date(2025, 1, 2, 12, 30, 0, 0, tzPST), time.Date(2025, 1, 2, 12, 34, 0, 0, tzPST), "1/2/25, 12:30\u2009–\u200912:34\u202Fpm"},
 		{en, "1/2/06 15:04", time.Date(2025, 1, 2, 11, 30, 0, 0, tzPST), time.Date(2025, 1, 2, 12, 34, 0, 0, tzPST), "1/2/25, 11:30\u202Fam\u2009–\u200912:34\u202Fpm"},
+
+		{es, "Jan. 2, 2006 15:04:05", time.Date(2025, 1, 2, 12, 30, 0, 0, tzCET), time.Date(2025, 1, 2, 12, 34, 0, 0, tzCET), "2 ene 2025, 12:30:00\u2009–\u200912:34:00"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.str, func(t *testing.T) {

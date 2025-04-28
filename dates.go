@@ -153,6 +153,8 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 		greatestDifference = "M"
 	} else if f.From.Day() != f.To.Day() {
 		greatestDifference = "d"
+	} else if f.From.Hour()/12 != f.To.Hour()/12 {
+		greatestDifference = "a"
 	} else if f.From.Hour() != f.To.Hour() {
 		if strings.IndexByte(layoutPattern, 'H') != -1 {
 			greatestDifference = "H"
@@ -165,104 +167,126 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 		greatestDifference = "s"
 	}
 
-	intervalFormatItem, ok := locale.DatetimeIntervalFormat[layoutPattern]
-	if !ok && (greatestDifference == "H" || greatestDifference == "h" || greatestDifference == "m" || greatestDifference == "s") {
-		// TODO: very hacky
-		// split date and time when pattern doesn't exist
-		if sep := strings.Index(f.Layout, "15:"); sep != -1 {
-			sep2 := sep - 1
-			for 0 < sep2 && (f.Layout[sep2] == ' ' || f.Layout[sep2] == ',') {
-				sep2--
+	// if pattern exists as interval format, use that
+	// otherwise, if it differs only in time, format for datetime where time is an interval format of time or the default
+	// otherwise, use the default interval format
+
+	pattern, ok := getIntervalPattern(locale, layoutPattern, greatestDifference)
+	if !ok {
+		if greatestDifference == "a" || greatestDifference == "H" || greatestDifference == "h" || greatestDifference == "m" || greatestDifference == "s" {
+			idxSep := len(f.Layout)
+			var datePattern string
+			if strings.HasPrefix(f.Layout, DateFull) {
+				datePattern = locale.DateFormat.Full
+				idxSep = len(DateFull)
+			} else if strings.HasPrefix(f.Layout, DateLong) {
+				datePattern = locale.DateFormat.Long
+				idxSep = len(DateLong)
+			} else if strings.HasPrefix(f.Layout, DateMedium) {
+				datePattern = locale.DateFormat.Medium
+				idxSep = len(DateMedium)
+			} else if strings.HasPrefix(f.Layout, DateShort) {
+				datePattern = locale.DateFormat.Short
+				idxSep = len(DateShort)
 			}
 
-			var pattern, timePattern string
-			switch f.Layout[:sep2+1] {
-			case DateFull:
-				pattern = locale.DatetimeFormat.Full
-				timePattern = locale.TimeFormat.Full
-			case DateLong:
-				pattern = locale.DatetimeFormat.Long
-				timePattern = locale.TimeFormat.Long
-			case DateMedium:
-				pattern = locale.DatetimeFormat.Medium
-				timePattern = locale.TimeFormat.Medium
-			case DateShort:
-				pattern = locale.DatetimeFormat.Short
-				timePattern = locale.TimeFormat.Short
-			default:
-				pattern = locale.DatetimeFormat.Short
-				timePattern = layoutToPattern(f.Layout[sep:])
-			}
+			var timePattern string
+			if idxSep < len(f.Layout) {
+				idxTime := idxSep
+				if strings.HasPrefix(f.Layout[idxSep:], " at ") {
+					idxTime += 4
+				} else if strings.HasPrefix(f.Layout[idxSep:], ", ") {
+					idxTime += 2
+				} else if strings.HasPrefix(f.Layout[idxSep:], " ") {
+					idxTime += 1
+				}
 
-			date := TimeFormatter{Time: f.From, Layout: f.Layout[:sep2+1]}
-			intervalFormatItem2, ok := locale.DatetimeIntervalFormat[timePattern]
-			if ok {
-				i := 0
-				for j := 0; j < len(pattern); {
-					if strings.HasPrefix(pattern[j:], "{0}") {
-						state.Write([]byte(pattern[i:j]))
-						formatInterval(state, locale, f.From, f.To, intervalFormatItem2, greatestDifference)
-						j += 3
-						i = j
-					} else if strings.HasPrefix(pattern[j:], "{1}") {
-						state.Write([]byte(pattern[i:j]))
-						date.Format(state, verb)
-						j += 3
-						i = j
-					} else {
-						j++
+				if idxTime == idxSep {
+					datePattern = layoutToPattern(f.Layout)
+				} else {
+					switch f.Layout[idxTime:] {
+					case TimeFull:
+						timePattern = locale.TimeFormat.Full
+					case TimeLong:
+						timePattern = locale.TimeFormat.Long
+					case TimeMedium:
+						timePattern = locale.TimeFormat.Medium
+					case TimeShort:
+						timePattern = locale.TimeFormat.Short
+					default:
+						timePattern = layoutToPattern(f.Layout[idxTime:])
 					}
 				}
-				return
 			}
-		}
-	}
 
-	if !ok {
-		// no pattern exists, write out interval in the long format
-		pattern := locale.DatetimeIntervalFormat[""][""]
-		from := TimeFormatter{Time: f.From, Layout: f.Layout}
-		to := TimeFormatter{Time: f.To, Layout: f.Layout}
-		i := 0
-		for j := 0; j < len(pattern); {
-			if strings.HasPrefix(pattern[j:], "{0}") {
-				state.Write([]byte(pattern[i:j]))
-				from.Format(state, verb)
-				j += 3
-				i = j
-			} else if strings.HasPrefix(pattern[j:], "{1}") {
-				state.Write([]byte(pattern[i:j]))
-				to.Format(state, verb)
-				j += 3
-				i = j
+			if datePattern != "" && timePattern != "" {
+				switch f.Layout[:idxSep] {
+				case DateFull:
+					pattern = locale.DatetimeFormat.Full
+				case DateLong:
+					pattern = locale.DatetimeFormat.Long
+				case DateMedium:
+					pattern = locale.DatetimeFormat.Medium
+				case DateShort:
+					pattern = locale.DatetimeFormat.Short
+				}
+				pattern = strings.ReplaceAll(pattern, "{1}", datePattern)
+			} else if datePattern != "" {
+				pattern = datePattern
+			} else if timePattern != "" {
+				pattern = "{0}"
 			} else {
-				j++
+				pattern = layoutToPattern(f.Layout)
 			}
+
+			if greatestDifference == "H" || greatestDifference == "h" {
+				if strings.IndexByte(timePattern, 'H') != -1 {
+					greatestDifference = "H"
+				} else {
+					greatestDifference = "h"
+				}
+			}
+
+			intervalPattern, ok := getIntervalPattern(locale, timePattern, greatestDifference)
+			if ok {
+				pattern = strings.ReplaceAll(pattern, "{0}", intervalPattern)
+			} else {
+				pattern = strings.ReplaceAll(pattern, "{0}", locale.DatetimeIntervalFormat[""][""])
+				pattern = strings.ReplaceAll(pattern, "{0}", timePattern)
+				pattern = strings.ReplaceAll(pattern, "{1}", timePattern)
+			}
+		} else {
+			pattern = locale.DatetimeIntervalFormat[""][""]
+			pattern = strings.ReplaceAll(pattern, "{0}", layoutPattern)
+			pattern = strings.ReplaceAll(pattern, "{1}", layoutPattern)
 		}
-		state.Write([]byte(pattern[i:]))
-		return
 	}
-	formatInterval(state, locale, f.From, f.To, intervalFormatItem, greatestDifference)
+	state.Write(formatInterval([]byte{}, pattern, locale, f.From, f.To))
 }
 
-func formatInterval(state fmt.State, locale Locale, from, to time.Time, intervalFormatItem map[string]string, greatestDifference string) {
-	pattern, ok := intervalFormatItem[greatestDifference]
-	if !ok {
-		greatestDifference = "s"
-		for diff := range intervalFormatItem {
-			if diff == "y" {
-				greatestDifference = diff
-				break
-			} else if diff == "M" {
-				greatestDifference = diff
-			} else if greatestDifference != "M" && diff < greatestDifference {
-				greatestDifference = diff
+func getIntervalPattern(locale Locale, pattern, greatestDifference string) (string, bool) {
+	if intervalPatterns, ok := locale.DatetimeIntervalFormat[pattern]; ok {
+		intervalPattern, ok := intervalPatterns[greatestDifference]
+		if !ok {
+			greatestDifference = "s"
+			for diff := range intervalPatterns {
+				if diff == "y" {
+					greatestDifference = diff
+					break
+				} else if diff == "M" {
+					greatestDifference = diff
+				} else if greatestDifference != "M" && diff < greatestDifference {
+					greatestDifference = diff
+				}
 			}
+			intervalPattern, ok = intervalPatterns[greatestDifference]
 		}
-		pattern, _ = intervalFormatItem[greatestDifference]
+		return intervalPattern, ok
 	}
+	return "", false
+}
 
-	var b []byte
+func formatInterval(b []byte, pattern string, locale Locale, from, to time.Time) []byte {
 	handled := map[byte]bool{}
 	for i := 0; i < len(pattern); {
 		r, n := utf8.DecodeRuneInString(pattern[i:])
@@ -286,6 +310,7 @@ func formatInterval(state fmt.State, locale Locale, from, to time.Time, interval
 			handled[pattern[i]] = true
 
 			var m int
+			var ok bool
 			if b, m, ok = formatDatetimeItem(b, pattern[i:], locale, t); !ok {
 				log.Printf("INFO: locale: unsupported date/time format: %v\n", pattern[:m])
 			} else if m != 0 {
@@ -296,7 +321,7 @@ func formatInterval(state fmt.State, locale Locale, from, to time.Time, interval
 			}
 		}
 	}
-	state.Write(b)
+	return b
 }
 
 func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([]byte, int, bool) {
@@ -430,6 +455,15 @@ func layoutToPattern(layout string) string {
 		} else if strings.HasPrefix(layout[i:], "Mon") {
 			sb.WriteString("E")
 			i += 3
+		} else if strings.HasPrefix(layout[i:], "MST-07:00") {
+			sb.WriteString("ZZZZ")
+			i += 9
+		} else if strings.HasPrefix(layout[i:], "MST") {
+			sb.WriteString("z")
+			i += 3
+		} else if strings.HasPrefix(layout[i:], "Mountain Standard Time") {
+			sb.WriteString("zzzz")
+			i += 22
 		} else if strings.HasPrefix(layout[i:], "M") {
 			sb.WriteString("EEEEE")
 			i += 1
@@ -461,12 +495,6 @@ func layoutToPattern(layout string) string {
 		} else if strings.HasPrefix(layout[i:], "05") {
 			sb.WriteString("ss")
 			i += 2
-		} else if strings.HasPrefix(layout[i:], "MST-07:00") {
-			sb.WriteString("ZZZZ")
-			i += 9
-		} else if strings.HasPrefix(layout[i:], "MST") {
-			sb.WriteString("z")
-			i += 3
 		} else if strings.HasPrefix(layout[i:], "-0700") {
 			sb.WriteString("Z")
 			i += 5
