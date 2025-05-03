@@ -90,6 +90,8 @@ func (p *Printer) T(a ...any) string {
 			return p.Sprintf("%v", DecimalFormatter{v})
 		case language.Region:
 			return p.Sprintf("%v", RegionFormatter{v})
+		case *time.Location:
+			return p.Sprintf("%v", TimezoneFormatter{v})
 		}
 	}
 	return p.Sprint(a...)

@@ -632,3 +632,15 @@ func scanTime(t *time.Time, isrc interface{}) error {
 	*t = time.Date(int(year), time.Month(month), int(day), int(hours), int(minutes), int(seconds), int(fseconds*1e9+0.5), time.UTC)
 	return nil
 }
+
+type TimezoneFormatter struct {
+	*time.Location
+}
+
+func (f TimezoneFormatter) Format(state fmt.State, verb rune) {
+	//locale := locales["root"]
+	//if languager, ok := state.(Languager); ok {
+	//	locale = GetLocale(languager.Language())
+	//}
+	state.Write([]byte(f.Location.String()))
+}

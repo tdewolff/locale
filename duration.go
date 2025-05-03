@@ -171,8 +171,8 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 	}
 
 	num := int64(f.Duration)
-	unitType := []string{"hour", "minute", "second", "millisecond", "microsecond", "nanosecond"}
-	unitSize := []int64{3600 * 1e9, 60 * 1e9, 1e9, 1e6, 1e3, 1}
+	unitType := []string{"week", "day", "hour", "minute", "second", "millisecond", "microsecond", "nanosecond"}
+	unitSize := []int64{7 * 24 * 3600 * 1e9, 24 * 3600 * 1e9, 3600 * 1e9, 60 * 1e9, 1e9, 1e6, 1e3, 1}
 	for i := 0; num != 0 && i < len(unitType); i++ {
 		if _, ok := locale.Unit["duration-"+unitType[i]]; ok {
 			n := num / unitSize[i]

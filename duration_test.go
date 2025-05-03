@@ -21,7 +21,7 @@ func TestDurationFormatter(t *testing.T) {
 		{es, "sec", 5*time.Hour + 2*time.Minute, "5 h 2 min"},
 		{es, "s", 5*time.Hour + 2*time.Minute, "5h 2min"},
 
-		{en, "second", 36 * time.Hour, "36 hours"},
+		{en, "≈second", 36 * time.Hour, "2 days"},
 		{en, "≈second", 5*time.Hour + 30*time.Minute, "6 hours"},
 		{en, "≈sec", 5*time.Hour + 30*time.Minute, "6 hr"},
 		{en, "≈s", 5*time.Hour + 30*time.Minute, "6h"},

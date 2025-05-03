@@ -86,6 +86,7 @@ type Locale struct {
 	MonthSymbol           [12]CalendarSymbol
 	DaySymbol             [7]CalendarSymbol
 	DayPeriodSymbol       [2]CalendarSymbol
+	TimezoneCity          map[string]string
 
 	Currency map[string]Currency
 	Unit     map[string]Unit
@@ -115,9 +116,10 @@ func main() {
 	for _, localeName := range LocaleNames {
 		tag := language.MustParse(localeName)
 		locale := Locale{
-			Currency:  map[string]Currency{},
-			Unit:      map[string]Unit{},
-			Territory: map[string]string{},
+			Currency:     map[string]Currency{},
+			Unit:         map[string]Unit{},
+			Territory:    map[string]string{},
+			TimezoneCity: map[string]string{},
 		}
 		if !tag.IsRoot() {
 			parent := tag.Parent().String()
@@ -138,6 +140,11 @@ func main() {
 				locale.Unit = make(map[string]Unit, len(parentLocale.Unit))
 				for k, v := range parentLocale.Unit {
 					locale.Unit[k] = v
+				}
+
+				locale.TimezoneCity = make(map[string]string, len(parentLocale.TimezoneCity))
+				for k, v := range parentLocale.TimezoneCity {
+					locale.TimezoneCity[k] = v
 				}
 
 				locale.Territory = make(map[string]string, len(parentLocale.Territory))
@@ -297,6 +304,8 @@ func main() {
 						greatestDifference := attrs[len(attrs)-1]["id"]
 						locale.DatetimeIntervalFormat[format][greatestDifference] = content
 					}
+				} else if isTag(tags, attrs, "ldml/dates/timeZonNames/zone[type]/exemplarCity") {
+					locale.TimezoneCity[attrs[len(attrs)-2]["type"]] = content
 				} else if isTag(tags, attrs, "ldml/units/unitLength[type]/unit[type]/unitPattern[count]") {
 					if unitName := attrs[len(attrs)-2]["type"]; strings.HasPrefix(unitName, "duration-") {
 						var count *Count
