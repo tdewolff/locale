@@ -72,6 +72,11 @@ func ParseAmountLocale(tag language.Tag, unit currency.Unit, s string) (Amount, 
 	return NewAmount(unit, amount, dec), nil
 }
 
+func NewZeroAmount(unit currency.Unit) Amount {
+	cur := GetCurrency(unit)
+	return Amount{unit, 0, cur.Digits, cur.Rounding}
+}
+
 func NewAmount(unit currency.Unit, amount int64, dec int) Amount {
 	cur := GetCurrency(unit)
 	prec := cur.Digits + AmountPrecision
