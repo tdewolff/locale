@@ -35,72 +35,9 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 		locale = GetLocale(languager.Language())
 	}
 
-	idxSep := len(f.Layout)
-	var datePattern string
-	if strings.HasPrefix(f.Layout, DateFull) {
-		datePattern = locale.DateFormat.Full
-		idxSep = len(DateFull)
-	} else if strings.HasPrefix(f.Layout, DateLong) {
-		datePattern = locale.DateFormat.Long
-		idxSep = len(DateLong)
-	} else if strings.HasPrefix(f.Layout, DateMedium) {
-		datePattern = locale.DateFormat.Medium
-		idxSep = len(DateMedium)
-	} else if strings.HasPrefix(f.Layout, DateShort) {
-		datePattern = locale.DateFormat.Short
-		idxSep = len(DateShort)
-	}
-
-	var timePattern string
-	if idxSep < len(f.Layout) {
-		idxTime := idxSep
-		if strings.HasPrefix(f.Layout[idxSep:], " at ") {
-			idxTime += 4
-		} else if strings.HasPrefix(f.Layout[idxSep:], ", ") {
-			idxTime += 2
-		} else if strings.HasPrefix(f.Layout[idxSep:], " ") {
-			idxTime += 1
-		}
-
-		if idxTime == idxSep {
-			datePattern = layoutToPattern(f.Layout)
-		} else {
-			switch f.Layout[idxTime:] {
-			case TimeFull:
-				timePattern = locale.TimeFormat.Full
-			case TimeLong:
-				timePattern = locale.TimeFormat.Long
-			case TimeMedium:
-				timePattern = locale.TimeFormat.Medium
-			case TimeShort:
-				timePattern = locale.TimeFormat.Short
-			default:
-				timePattern = layoutToPattern(f.Layout[idxTime:])
-			}
-		}
-	}
-
-	var pattern string
-	if datePattern != "" && timePattern != "" {
-		switch f.Layout[:idxSep] {
-		case DateFull:
-			pattern = locale.DatetimeFormat.Full
-		case DateLong:
-			pattern = locale.DatetimeFormat.Long
-		case DateMedium:
-			pattern = locale.DatetimeFormat.Medium
-		case DateShort:
-			pattern = locale.DatetimeFormat.Short
-		}
-		pattern = strings.ReplaceAll(pattern, "{0}", timePattern)
-		pattern = strings.ReplaceAll(pattern, "{1}", datePattern)
-	} else if datePattern != "" {
-		pattern = datePattern
-	} else if timePattern != "" {
-		pattern = timePattern
-	} else {
-		pattern = layoutToPattern(f.Layout)
-	}
+	pattern, datePattern, timePattern := layoutToPatterns(locale, f.Layout)
+	pattern = strings.ReplaceAll(pattern, "{0}", timePattern)
+	pattern = strings.ReplaceAll(pattern, "{1}", datePattern)
 
 	var b []byte
 	for i := 0; i < len(pattern); {
@@ -144,7 +81,7 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 		locale = GetLocale(languager.Language())
 	}
 
-	layoutPattern := layoutToPattern(f.Layout)
+	pattern, datePattern, timePattern := layoutToPatterns(locale, f.Layout)
 
 	var greatestDifference string
 	if f.From.Year() != f.To.Year() {
@@ -156,7 +93,7 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 	} else if f.From.Hour()/12 != f.To.Hour()/12 {
 		greatestDifference = "a"
 	} else if f.From.Hour() != f.To.Hour() {
-		if strings.IndexByte(layoutPattern, 'H') != -1 {
+		if strings.IndexByte(timePattern, 'H') != -1 {
 			greatestDifference = "H"
 		} else {
 			greatestDifference = "h"
@@ -171,74 +108,13 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 	// otherwise, if it differs only in time, format for datetime where time is an interval format of time or the default
 	// otherwise, use the default interval format
 
-	pattern, ok := getIntervalPattern(locale, layoutPattern, greatestDifference)
+	fullPattern := pattern
+	fullPattern = strings.ReplaceAll(fullPattern, "{0}", timePattern)
+	fullPattern = strings.ReplaceAll(fullPattern, "{1}", datePattern)
+	intervalPattern, ok := getIntervalPattern(locale, fullPattern, greatestDifference)
 	if !ok {
 		if greatestDifference == "a" || greatestDifference == "H" || greatestDifference == "h" || greatestDifference == "m" || greatestDifference == "s" {
-			idxSep := len(f.Layout)
-			var datePattern string
-			if strings.HasPrefix(f.Layout, DateFull) {
-				datePattern = locale.DateFormat.Full
-				idxSep = len(DateFull)
-			} else if strings.HasPrefix(f.Layout, DateLong) {
-				datePattern = locale.DateFormat.Long
-				idxSep = len(DateLong)
-			} else if strings.HasPrefix(f.Layout, DateMedium) {
-				datePattern = locale.DateFormat.Medium
-				idxSep = len(DateMedium)
-			} else if strings.HasPrefix(f.Layout, DateShort) {
-				datePattern = locale.DateFormat.Short
-				idxSep = len(DateShort)
-			}
-
-			var timePattern string
-			if idxSep < len(f.Layout) {
-				idxTime := idxSep
-				if strings.HasPrefix(f.Layout[idxSep:], " at ") {
-					idxTime += 4
-				} else if strings.HasPrefix(f.Layout[idxSep:], ", ") {
-					idxTime += 2
-				} else if strings.HasPrefix(f.Layout[idxSep:], " ") {
-					idxTime += 1
-				}
-
-				if idxTime == idxSep {
-					datePattern = layoutToPattern(f.Layout)
-				} else {
-					switch f.Layout[idxTime:] {
-					case TimeFull:
-						timePattern = locale.TimeFormat.Full
-					case TimeLong:
-						timePattern = locale.TimeFormat.Long
-					case TimeMedium:
-						timePattern = locale.TimeFormat.Medium
-					case TimeShort:
-						timePattern = locale.TimeFormat.Short
-					default:
-						timePattern = layoutToPattern(f.Layout[idxTime:])
-					}
-				}
-			}
-
-			if datePattern != "" && timePattern != "" {
-				switch f.Layout[:idxSep] {
-				case DateFull:
-					pattern = locale.DatetimeFormat.Full
-				case DateLong:
-					pattern = locale.DatetimeFormat.Long
-				case DateMedium:
-					pattern = locale.DatetimeFormat.Medium
-				case DateShort:
-					pattern = locale.DatetimeFormat.Short
-				}
-				pattern = strings.ReplaceAll(pattern, "{1}", datePattern)
-			} else if datePattern != "" {
-				pattern = datePattern
-			} else if timePattern != "" {
-				pattern = "{0}"
-			} else {
-				pattern = layoutToPattern(f.Layout)
-			}
-
+			// date pattern displayed once with interval in time
 			if greatestDifference == "H" || greatestDifference == "h" {
 				if strings.IndexByte(timePattern, 'H') != -1 {
 					greatestDifference = "H"
@@ -247,25 +123,53 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 				}
 			}
 
-			intervalPattern, ok := getIntervalPattern(locale, timePattern, greatestDifference)
+			intervalPattern = pattern
+			intervalPattern = strings.ReplaceAll(intervalPattern, "{1}", datePattern)
+
+			timeIntervalPattern, ok := getIntervalPattern(locale, timePattern, greatestDifference)
 			if ok {
-				pattern = strings.ReplaceAll(pattern, "{0}", intervalPattern)
+				intervalPattern = strings.ReplaceAll(intervalPattern, "{0}", timeIntervalPattern)
 			} else {
-				pattern = strings.ReplaceAll(pattern, "{0}", locale.DatetimeIntervalFormat[""][""])
-				pattern = strings.ReplaceAll(pattern, "{0}", timePattern)
-				pattern = strings.ReplaceAll(pattern, "{1}", timePattern)
+				intervalPattern = strings.ReplaceAll(intervalPattern, "{0}", locale.DatetimeIntervalFormat[""][""])
+				intervalPattern = strings.ReplaceAll(intervalPattern, "{0}", timePattern)
+				intervalPattern = strings.ReplaceAll(intervalPattern, "{1}", timePattern)
 			}
 		} else {
-			pattern = locale.DatetimeIntervalFormat[""][""]
-			pattern = strings.ReplaceAll(pattern, "{0}", layoutPattern)
-			pattern = strings.ReplaceAll(pattern, "{1}", layoutPattern)
+			intervalPattern = locale.DatetimeIntervalFormat[""][""]
+			intervalPattern = strings.ReplaceAll(intervalPattern, "{0}", fullPattern)
+			intervalPattern = strings.ReplaceAll(intervalPattern, "{1}", fullPattern)
 		}
 	}
-	state.Write(formatInterval([]byte{}, pattern, locale, f.From, f.To))
+	state.Write(formatInterval([]byte{}, intervalPattern, locale, f.From, f.To))
 }
 
 func getIntervalPattern(locale Locale, pattern, greatestDifference string) (string, bool) {
-	if intervalPatterns, ok := locale.DatetimeIntervalFormat[pattern]; ok {
+	id := ""
+	substitutions := map[string]string{}
+	symbolLists := [][]string{{"G"}, {"y"}, {"MMMM", "MMM", "M"}, {"E"}, {"d"}, {"B"}, {"h"}, {"H"}, {"m"}, {"s"}, {"v", "z"}}
+	for _, symbolList := range symbolLists {
+		for _, symbol := range symbolList {
+			if idx := strings.Index(pattern, symbol); idx != -1 {
+				if symbol == "z" {
+					start, end := idx, idx+1
+					for end < len(pattern) && pattern[end] == 'z' {
+						end++
+					}
+					substitutions["v"] = pattern[start:end]
+					symbol = "v"
+				}
+				id += symbol
+				break
+			}
+		}
+	}
+
+	if intervalPatterns, ok := locale.DatetimeIntervalFormat[id]; ok {
+		if id == "" {
+			intervalPattern, ok := intervalPatterns[""]
+			return intervalPattern, ok
+		}
+
 		intervalPattern, ok := intervalPatterns[greatestDifference]
 		if !ok {
 			greatestDifference = "s"
@@ -280,6 +184,10 @@ func getIntervalPattern(locale Locale, pattern, greatestDifference string) (stri
 				}
 			}
 			intervalPattern, ok = intervalPatterns[greatestDifference]
+		}
+
+		for from, to := range substitutions {
+			intervalPattern = strings.ReplaceAll(intervalPattern, from, to)
 		}
 		return intervalPattern, ok
 	}
@@ -312,7 +220,8 @@ func formatInterval(b []byte, pattern string, locale Locale, from, to time.Time)
 			var m int
 			var ok bool
 			if b, m, ok = formatDatetimeItem(b, pattern[i:], locale, t); !ok {
-				log.Printf("INFO: locale: unsupported date/time format: %v\n", pattern[:m])
+				log.Printf("INFO: locale: unsupported date/time format: %v\n", pattern[i:i+m])
+				i += m
 			} else if m != 0 {
 				i += m
 			} else {
@@ -324,20 +233,35 @@ func formatInterval(b []byte, pattern string, locale Locale, from, to time.Time)
 	return b
 }
 
+func getTimezone(locale Locale, t time.Time) string {
+	timezone := t.Location().String()
+	if alias, ok := timezoneAliases[timezone]; ok {
+		timezone = alias
+	}
+	return timezone
+}
+
+func is12Hours(locale Locale) bool {
+	return strings.IndexByte(locale.TimeFormat.Full, 'h') != -1
+}
+
 func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([]byte, int, bool) {
 	// TODO: handle literal characters (in single quotes)
 	switch pattern[0] {
-	case 'G', 'y', 'M', 'L', 'E', 'c', 'd', 'h', 'H', 'K', 'k', 'm', 's', 'a', 'b', 'B', 'z', 'v', 'Q':
+	case 'G', 'y', 'M', 'L', 'E', 'c', 'd', 'h', 'H', 'K', 'k', 'm', 's', 'a', 'b', 'B', 'z', 'Z', 'v', 'V', 'O', 'x', 'X', 'Q':
 		n := 1
 		for n < len(pattern) && pattern[n] == pattern[0] {
 			n++
 		}
-		// TODO: does not support all patterns
 		dayPeriod := 0
 		if t.Format("PM") == "PM" {
 			dayPeriod = 1
 		}
-		switch pattern[:n] {
+
+		// TODO: does not support all patterns
+		symbol := pattern[:n]
+	TrySymbol:
+		switch symbol {
 		case "y":
 			b = strconv.AppendInt(b, int64(t.Year()), 10)
 		case "yy":
@@ -386,20 +310,73 @@ func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([
 			b = t.AppendFormat(b, "5")
 		case "ss":
 			b = t.AppendFormat(b, "05")
+		case "v":
+			if metazone, ok := locale.Metazones[metazones[getTimezone(locale, t)]]; ok && metazone.Generic.Short != "" {
+				b = append(b, metazone.Generic.Short...)
+			} else {
+				symbol = "O" // should try VVVV and otherwise O
+				goto TrySymbol
+			}
+		case "vvvv":
+			if metazone, ok := locale.Metazones[metazones[getTimezone(locale, t)]]; ok && metazone.Generic.Long != "" {
+				b = append(b, metazone.Generic.Long...)
+			} else {
+				symbol = "OOOO" // should try VVVV and otherwise OOOO
+				goto TrySymbol
+			}
+		case "V":
+			zone, _ := t.Zone()
+			b = append(b, zone...)
+		case "VV":
+			b = append(b, getTimezone(locale, t)...)
+		case "VVV":
+			if city, ok := locale.TimezoneCity[getTimezone(locale, t)]; ok {
+				b = append(b, city...)
+			} else {
+				b = append(b, locale.TimezoneCity["Etc/Unknown"]...)
+			}
+		case "VVVV":
+			symbol = "OOOO" // TODO: VVVV values don't exist in CLDR database?
+			goto TrySymbol
 		case "z", "zz", "zzz":
-			b = t.AppendFormat(b, "MST")
+			if metazone, ok := locale.Metazones[metazones[getTimezone(locale, t)]]; ok && (t.IsDST() && metazone.Daylight.Short != "" || !t.IsDST() && metazone.Standard.Short != "") {
+				if t.IsDST() {
+					b = append(b, metazone.Daylight.Short...)
+				} else {
+					b = append(b, metazone.Standard.Short...)
+				}
+			} else {
+				symbol = "O"
+				goto TrySymbol
+			}
 		case "zzzz":
-			b = t.AppendFormat(b, "MST") // TODO: should be longer: Mountain Standard Time
-		case "Z", "ZZ", "ZZZ":
+			if metazone, ok := locale.Metazones[metazones[getTimezone(locale, t)]]; ok && (t.IsDST() && metazone.Daylight.Long != "" || !t.IsDST() && metazone.Standard.Long != "") {
+				if t.IsDST() {
+					b = append(b, metazone.Daylight.Long...)
+				} else {
+					b = append(b, metazone.Standard.Long...)
+				}
+			} else {
+				symbol = "O" // should try specific location format first, but doensn't exist in CLDR database?
+				goto TrySymbol
+			}
+		case "Z", "ZZ", "ZZZ", "xxxx":
 			b = t.AppendFormat(b, "-0700")
-		case "ZZZZ":
+		case "O":
+			if t.Location() == time.UTC {
+				b = append(b, []byte("GMT")...)
+			} else {
+				b = t.AppendFormat(b, "MST")
+			}
+			b = t.AppendFormat(b, "-7")
+		case "ZZZZ", "OOOO":
 			if t.Location() == time.UTC {
 				b = append(b, []byte("GMT")...)
 			} else {
 				b = t.AppendFormat(b, "MST")
 			}
 			b = t.AppendFormat(b, "-07:00")
-		case "ZZZZZ":
+		case "ZZZZZ", "XXXXX":
 			b = t.AppendFormat(b, "-07:00:00")
 			if bytes.Equal(b[len(b)-3:], []byte(":00")) {
 				b = b[:len(b)-3]
@@ -412,7 +389,7 @@ func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([
 	return b, 0, true
 }
 
-func layoutToPattern(layout string) string {
+func layoutToPattern(locale Locale, layout string) string {
 	// TODO: write unknown character (literal) in single quotes
 	sb := strings.Builder{}
 	for i := 0; i < len(layout); {
@@ -426,7 +403,11 @@ func layoutToPattern(layout string) string {
 			sb.WriteString("yyyy")
 			i += 4
 		} else if strings.HasPrefix(layout[i:], "15") {
-			sb.WriteString("HH")
+			if is12Hours(locale) {
+				sb.WriteString("hh")
+			} else {
+				sb.WriteString("HH")
+			}
 			i += 2
 		} else if strings.HasPrefix(layout[i:], "1") {
 			sb.WriteString("M")
@@ -455,6 +436,21 @@ func layoutToPattern(layout string) string {
 		} else if strings.HasPrefix(layout[i:], "Mon") {
 			sb.WriteString("E")
 			i += 3
+		} else if strings.HasPrefix(layout[i:], "MT") {
+			sb.WriteString("v")
+			i += 2
+		} else if strings.HasPrefix(layout[i:], "Mountain Time") {
+			sb.WriteString("vvvv")
+			i += 13
+		} else if strings.HasPrefix(layout[i:], "America/Phoenix") {
+			sb.WriteString("VV")
+			i += 15
+		} else if strings.HasPrefix(layout[i:], "Phoenix Time") {
+			sb.WriteString("VVVV")
+			i += 12
+		} else if strings.HasPrefix(layout[i:], "Phoenix") {
+			sb.WriteString("VVV")
+			i += 7
 		} else if strings.HasPrefix(layout[i:], "MST-07:00") {
 			sb.WriteString("ZZZZ")
 			i += 9
@@ -477,11 +473,18 @@ func layoutToPattern(layout string) string {
 			sb.WriteString("aaaaa")
 			i += 5
 		} else if strings.HasPrefix(layout[i:], "3") {
-			// TODO: missing H
-			sb.WriteString("h")
+			if is12Hours(locale) {
+				sb.WriteString("H")
+			} else {
+				sb.WriteString("h")
+			}
 			i += 1
 		} else if strings.HasPrefix(layout[i:], "03") {
-			sb.WriteString("hh")
+			if is12Hours(locale) {
+				sb.WriteString("HH")
+			} else {
+				sb.WriteString("hh")
+			}
 			i += 2
 		} else if strings.HasPrefix(layout[i:], "4") {
 			sb.WriteString("m")
@@ -498,6 +501,15 @@ func layoutToPattern(layout string) string {
 		} else if strings.HasPrefix(layout[i:], "-0700") {
 			sb.WriteString("Z")
 			i += 5
+		} else if strings.HasPrefix(layout[i:], "GMT-7:00") {
+			sb.WriteString("ZZZZ")
+			i += 8
+		} else if strings.HasPrefix(layout[i:], "GMT-7") {
+			sb.WriteString("O")
+			i += 5
+		} else if strings.HasPrefix(layout[i:], "GMT-07:00") {
+			sb.WriteString("OOOO")
+			i += 9
 		} else if strings.HasPrefix(layout[i:], "-07:00:00") {
 			sb.WriteString("ZZZZZ")
 			i += 9
@@ -510,6 +522,74 @@ func layoutToPattern(layout string) string {
 		}
 	}
 	return sb.String()
+}
+
+func layoutToPatterns(locale Locale, layout string) (string, string, string) {
+	idxSep := len(layout)
+	var datePattern string
+	if strings.HasPrefix(layout, DateFull) {
+		datePattern = locale.DateFormat.Full
+		idxSep = len(DateFull)
+	} else if strings.HasPrefix(layout, DateLong) {
+		datePattern = locale.DateFormat.Long
+		idxSep = len(DateLong)
+	} else if strings.HasPrefix(layout, DateMedium) {
+		datePattern = locale.DateFormat.Medium
+		idxSep = len(DateMedium)
+	} else if strings.HasPrefix(layout, DateShort) {
+		datePattern = locale.DateFormat.Short
+		idxSep = len(DateShort)
+	}
+
+	var timePattern string
+	if idxSep < len(layout) {
+		idxTime := idxSep
+		if strings.HasPrefix(layout[idxSep:], " at ") {
+			idxTime += 4
+		} else if strings.HasPrefix(layout[idxSep:], ", ") {
+			idxTime += 2
+		} else if strings.HasPrefix(layout[idxSep:], " ") {
+			idxTime += 1
+		}
+
+		if idxTime == idxSep {
+			datePattern = layoutToPattern(locale, layout)
+		} else {
+			switch layout[idxTime:] {
+			case TimeFull:
+				timePattern = locale.TimeFormat.Full
+			case TimeLong:
+				timePattern = locale.TimeFormat.Long
+			case TimeMedium:
+				timePattern = locale.TimeFormat.Medium
+			case TimeShort:
+				timePattern = locale.TimeFormat.Short
+			default:
+				timePattern = layoutToPattern(locale, layout[idxTime:])
+			}
+		}
+	}
+
+	var datetimePattern string
+	if datePattern != "" && timePattern != "" {
+		switch layout[:idxSep] {
+		case DateFull:
+			datetimePattern = locale.DatetimeFormat.Full
+		case DateLong:
+			datetimePattern = locale.DatetimeFormat.Long
+		case DateMedium:
+			datetimePattern = locale.DatetimeFormat.Medium
+		case DateShort:
+			datetimePattern = locale.DatetimeFormat.Short
+		}
+	} else if datePattern != "" {
+		datetimePattern = "{1}"
+	} else if timePattern != "" {
+		datetimePattern = "{0}"
+	} else {
+		datetimePattern = layoutToPattern(locale, layout)
+	}
+	return datetimePattern, datePattern, timePattern
 }
 
 // scanTime from database
@@ -643,4 +723,255 @@ func (f TimezoneFormatter) Format(state fmt.State, verb rune) {
 	//	locale = GetLocale(languager.Language())
 	//}
 	state.Write([]byte(f.Location.String()))
+}
+
+// from https://github.com/arp242/tz/blob/3c7bf612261228ea207792aef3a725c2fec518c6/alias.go
+var timezoneAliases = map[string]string{
+	// Not in the tzdb and "deprecated", but some browsers send this.
+	"CET": "Europe/Paris",
+	"EET": "Europe/Sofia",
+	"EST": "America/Cancun",
+	"HST": "Pacific/Honolulu",
+	"MET": "Europe/Paris",
+	"MST": "America/Phoenix",
+	"WET": "Europe/Lisbon",
+	"PST": "America/Los_Angeles",
+
+	// TODO
+	// Etc/GMT-14
+	// Etc/GMT-13
+	// Etc/GMT-12
+	// Etc/GMT-11
+	// Etc/GMT-10
+	// Etc/GMT-9
+	// Etc/GMT-8
+	// Etc/GMT-7
+	// Etc/GMT-6
+	// Etc/GMT-5
+	// Etc/GMT-4
+	// Etc/GMT-3
+	// Etc/GMT-2
+	// Etc/GMT-1
+	// Etc/GMT+1
+	// Etc/GMT+2
+	// Etc/GMT+3
+	// Etc/GMT+4
+	// Etc/GMT+5
+	// Etc/GMT+6
+	// Etc/GMT+7
+	// Etc/GMT+8
+	// Etc/GMT+9
+	// Etc/GMT+10
+	// Etc/GMT+11
+	// Etc/GMT+12
+
+	// Extracted from tzdb with:
+	// grep -h '^Link' *.zi | sed -E 's/\s+#.*//; s/\s+/ /g' | sort -u | sed -E 's/Link (.*?) (.*?)/"\2": "\1",/' |
+	"Europe/Kiev": "Europe/Kyiv",
+
+	"Africa/Bamako":                    "Africa/Abidjan",
+	"Africa/Banjul":                    "Africa/Abidjan",
+	"Africa/Conakry":                   "Africa/Abidjan",
+	"Africa/Dakar":                     "Africa/Abidjan",
+	"Africa/Freetown":                  "Africa/Abidjan",
+	"Africa/Lome":                      "Africa/Abidjan",
+	"Africa/Nouakchott":                "Africa/Abidjan",
+	"Africa/Ouagadougou":               "Africa/Abidjan",
+	"Africa/Timbuktu":                  "Africa/Abidjan",
+	"Atlantic/St_Helena":               "Africa/Abidjan",
+	"Egypt":                            "Africa/Cairo",
+	"Africa/Maseru":                    "Africa/Johannesburg",
+	"Africa/Mbabane":                   "Africa/Johannesburg",
+	"Africa/Bangui":                    "Africa/Lagos",
+	"Africa/Brazzaville":               "Africa/Lagos",
+	"Africa/Douala":                    "Africa/Lagos",
+	"Africa/Kinshasa":                  "Africa/Lagos",
+	"Africa/Libreville":                "Africa/Lagos",
+	"Africa/Luanda":                    "Africa/Lagos",
+	"Africa/Malabo":                    "Africa/Lagos",
+	"Africa/Niamey":                    "Africa/Lagos",
+	"Africa/Porto-Novo":                "Africa/Lagos",
+	"Africa/Blantyre":                  "Africa/Maputo",
+	"Africa/Bujumbura":                 "Africa/Maputo",
+	"Africa/Gaborone":                  "Africa/Maputo",
+	"Africa/Harare":                    "Africa/Maputo",
+	"Africa/Kigali":                    "Africa/Maputo",
+	"Africa/Lubumbashi":                "Africa/Maputo",
+	"Africa/Lusaka":                    "Africa/Maputo",
+	"Africa/Addis_Ababa":               "Africa/Nairobi",
+	"Africa/Asmara":                    "Africa/Nairobi",
+	"Africa/Asmera":                    "Africa/Nairobi",
+	"Africa/Dar_es_Salaam":             "Africa/Nairobi",
+	"Africa/Djibouti":                  "Africa/Nairobi",
+	"Africa/Kampala":                   "Africa/Nairobi",
+	"Africa/Mogadishu":                 "Africa/Nairobi",
+	"Indian/Antananarivo":              "Africa/Nairobi",
+	"Indian/Comoro":                    "Africa/Nairobi",
+	"Indian/Mayotte":                   "Africa/Nairobi",
+	"Libya":                            "Africa/Tripoli",
+	"America/Atka":                     "America/Adak",
+	"US/Aleutian":                      "America/Adak",
+	"US/Alaska":                        "America/Anchorage",
+	"America/Buenos_Aires":             "America/Argentina/Buenos_Aires",
+	"America/Argentina/ComodRivadavia": "America/Argentina/Catamarca",
+	"America/Catamarca":                "America/Argentina/Catamarca",
+	"America/Cordoba":                  "America/Argentina/Cordoba",
+	"America/Rosario":                  "America/Argentina/Cordoba",
+	"America/Jujuy":                    "America/Argentina/Jujuy",
+	"America/Mendoza":                  "America/Argentina/Mendoza",
+	"America/Coral_Harbour":            "America/Atikokan",
+	"US/Central":                       "America/Chicago",
+	"America/Aruba":                    "America/Curacao",
+	"America/Kralendijk":               "America/Curacao",
+	"America/Lower_Princes":            "America/Curacao",
+	"America/Shiprock":                 "America/Denver",
+	"Navajo":                           "America/Denver",
+	"US/Mountain":                      "America/Denver",
+	"US/Michigan":                      "America/Detroit",
+	"Canada/Mountain":                  "America/Edmonton",
+	"Canada/Atlantic":                  "America/Halifax",
+	"Cuba":                             "America/Havana",
+	"America/Fort_Wayne":               "America/Indiana/Indianapolis",
+	"America/Indianapolis":             "America/Indiana/Indianapolis",
+	"US/East-Indiana":                  "America/Indiana/Indianapolis",
+	"America/Knox_IN":                  "America/Indiana/Knox",
+	"US/Indiana-Starke":                "America/Indiana/Knox",
+	"Jamaica":                          "America/Jamaica",
+	"America/Louisville":               "America/Kentucky/Louisville",
+	"US/Pacific":                       "America/Los_Angeles",
+	"Brazil/West":                      "America/Manaus",
+	"Mexico/BajaSur":                   "America/Mazatlan",
+	"Mexico/General":                   "America/Mexico_City",
+	"US/Eastern":                       "America/New_York",
+	"Brazil/DeNoronha":                 "America/Noronha",
+	"America/Cayman":                   "America/Panama",
+	"US/Arizona":                       "America/Phoenix",
+	"America/Anguilla":                 "America/Port_of_Spain",
+	"America/Antigua":                  "America/Port_of_Spain",
+	"America/Dominica":                 "America/Port_of_Spain",
+	"America/Grenada":                  "America/Port_of_Spain",
+	"America/Guadeloupe":               "America/Port_of_Spain",
+	"America/Marigot":                  "America/Port_of_Spain",
+	"America/Montserrat":               "America/Port_of_Spain",
+	"America/St_Barthelemy":            "America/Port_of_Spain",
+	"America/St_Kitts":                 "America/Port_of_Spain",
+	"America/St_Lucia":                 "America/Port_of_Spain",
+	"America/St_Thomas":                "America/Port_of_Spain",
+	"America/St_Vincent":               "America/Port_of_Spain",
+	"America/Tortola":                  "America/Port_of_Spain",
+	"America/Virgin":                   "America/Port_of_Spain",
+	"Canada/Saskatchewan":              "America/Regina",
+	"America/Porto_Acre":               "America/Rio_Branco",
+	"Brazil/Acre":                      "America/Rio_Branco",
+	"Chile/Continental":                "America/Santiago",
+	"Brazil/East":                      "America/Sao_Paulo",
+	"Canada/Newfoundland":              "America/St_Johns",
+	"America/Ensenada":                 "America/Tijuana",
+	"America/Santa_Isabel":             "America/Tijuana",
+	"Mexico/BajaNorte":                 "America/Tijuana",
+	"America/Montreal":                 "America/Toronto",
+	"Canada/Eastern":                   "America/Toronto",
+	"Canada/Pacific":                   "America/Vancouver",
+	"Canada/Yukon":                     "America/Whitehorse",
+	"Canada/Central":                   "America/Winnipeg",
+	"Asia/Ashkhabad":                   "Asia/Ashgabat",
+	"Asia/Phnom_Penh":                  "Asia/Bangkok",
+	"Asia/Vientiane":                   "Asia/Bangkok",
+	"Asia/Dacca":                       "Asia/Dhaka",
+	"Asia/Muscat":                      "Asia/Dubai",
+	"Asia/Saigon":                      "Asia/Ho_Chi_Minh",
+	"Hongkong":                         "Asia/Hong_Kong",
+	"Asia/Tel_Aviv":                    "Asia/Jerusalem",
+	"Israel":                           "Asia/Jerusalem",
+	"Asia/Katmandu":                    "Asia/Kathmandu",
+	"Asia/Calcutta":                    "Asia/Kolkata",
+	"Asia/Macao":                       "Asia/Macau",
+	"Asia/Ujung_Pandang":               "Asia/Makassar",
+	"Europe/Nicosia":                   "Asia/Nicosia",
+	"Asia/Bahrain":                     "Asia/Qatar",
+	"Asia/Aden":                        "Asia/Riyadh",
+	"Asia/Kuwait":                      "Asia/Riyadh",
+	"ROK":                              "Asia/Seoul",
+	"Asia/Chongqing":                   "Asia/Shanghai",
+	"Asia/Chungking":                   "Asia/Shanghai",
+	"Asia/Harbin":                      "Asia/Shanghai",
+	"PRC":                              "Asia/Shanghai",
+	"Singapore":                        "Asia/Singapore",
+	"ROC":                              "Asia/Taipei",
+	"Iran":                             "Asia/Tehran",
+	"Asia/Thimbu":                      "Asia/Thimphu",
+	"Japan":                            "Asia/Tokyo",
+	"Asia/Ulan_Bator":                  "Asia/Ulaanbaatar",
+	"Asia/Kashgar":                     "Asia/Urumqi",
+	"Asia/Rangoon":                     "Asia/Yangon",
+	"Atlantic/Faeroe":                  "Atlantic/Faroe",
+	"Iceland":                          "Atlantic/Reykjavik",
+	"Australia/South":                  "Australia/Adelaide",
+	"Australia/Queensland":             "Australia/Brisbane",
+	"Australia/Yancowinna":             "Australia/Broken_Hill",
+	"Australia/North":                  "Australia/Darwin",
+	"Australia/Tasmania":               "Australia/Hobart",
+	"Australia/LHI":                    "Australia/Lord_Howe",
+	"Australia/Victoria":               "Australia/Melbourne",
+	"Australia/West":                   "Australia/Perth",
+	"Australia/ACT":                    "Australia/Sydney",
+	"Australia/Canberra":               "Australia/Sydney",
+	"Australia/NSW":                    "Australia/Sydney",
+	"Etc/GMT+0":                        "Etc/GMT",
+	"Etc/GMT-0":                        "Etc/GMT",
+	"Etc/GMT0":                         "Etc/GMT",
+	"Etc/Greenwich":                    "Etc/GMT",
+	"GMT":                              "Etc/GMT",
+	"GMT+0":                            "Etc/GMT",
+	"GMT-0":                            "Etc/GMT",
+	"GMT0":                             "Etc/GMT",
+	"Greenwich":                        "Etc/GMT",
+	"Etc/UCT":                          "Etc/UTC",
+	"Etc/Universal":                    "Etc/UTC",
+	"Etc/Zulu":                         "Etc/UTC",
+	"UCT":                              "Etc/UTC",
+	"UTC":                              "Etc/UTC",
+	"Universal":                        "Etc/UTC",
+	"Zulu":                             "Etc/UTC",
+	"Europe/Ljubljana":                 "Europe/Belgrade",
+	"Europe/Podgorica":                 "Europe/Belgrade",
+	"Europe/Sarajevo":                  "Europe/Belgrade",
+	"Europe/Skopje":                    "Europe/Belgrade",
+	"Europe/Zagreb":                    "Europe/Belgrade",
+	"Europe/Tiraspol":                  "Europe/Chisinau",
+	"Eire":                             "Europe/Dublin",
+	"Europe/Mariehamn":                 "Europe/Helsinki",
+	"Asia/Istanbul":                    "Europe/Istanbul",
+	"Turkey":                           "Europe/Istanbul",
+	"Portugal":                         "Europe/Lisbon",
+	"Europe/Belfast":                   "Europe/London",
+	"Europe/Guernsey":                  "Europe/London",
+	"Europe/Isle_of_Man":               "Europe/London",
+	"Europe/Jersey":                    "Europe/London",
+	"GB":                               "Europe/London",
+	"GB-Eire":                          "Europe/London",
+	"W-SU":                             "Europe/Moscow",
+	"Arctic/Longyearbyen":              "Europe/Oslo",
+	"Atlantic/Jan_Mayen":               "Europe/Oslo",
+	"Europe/Bratislava":                "Europe/Prague",
+	"Europe/San_Marino":                "Europe/Rome",
+	"Europe/Vatican":                   "Europe/Rome",
+	"Poland":                           "Europe/Warsaw",
+	"Europe/Busingen":                  "Europe/Zurich",
+	"Europe/Vaduz":                     "Europe/Zurich",
+	"Antarctica/McMurdo":               "Pacific/Auckland",
+	"Antarctica/South_Pole":            "Pacific/Auckland",
+	"NZ":                               "Pacific/Auckland",
+	"NZ-CHAT":                          "Pacific/Chatham",
+	"Pacific/Truk":                     "Pacific/Chuuk",
+	"Pacific/Yap":                      "Pacific/Chuuk",
+	"Chile/EasterIsland":               "Pacific/Easter",
+	"Pacific/Saipan":                   "Pacific/Guam",
+	"Pacific/Johnston":                 "Pacific/Honolulu",
+	"US/Hawaii":                        "Pacific/Honolulu",
+	"Kwajalein":                        "Pacific/Kwajalein",
+	"Pacific/Midway":                   "Pacific/Pago_Pago",
+	"Pacific/Samoa":                    "Pacific/Pago_Pago",
+	"US/Samoa":                         "Pacific/Pago_Pago",
+	"Pacific/Ponape":                   "Pacific/Pohnpei",
 }

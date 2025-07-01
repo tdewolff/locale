@@ -1,5 +1,7 @@
 package locale
 
+//go:generate go run gen_cldr.go
+
 import (
 	"reflect"
 	"time"

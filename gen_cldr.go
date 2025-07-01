@@ -68,6 +68,17 @@ type Unit struct {
 	Narrow Count
 }
 
+type MetazoneSymbol struct {
+	Long  string
+	Short string
+}
+
+type Metazone struct {
+	Generic  MetazoneSymbol
+	Standard MetazoneSymbol
+	Daylight MetazoneSymbol
+}
+
 type Locale struct {
 	DecimalFormat          string
 	CurrencyFormat         CurrencyFormat
@@ -75,6 +86,7 @@ type Locale struct {
 	TimeFormat             CalendarFormat
 	DatetimeFormat         CalendarFormat
 	DatetimeIntervalFormat map[string]map[string]string
+	TimezoneFormat         string
 
 	DecimalSymbol         rune
 	GroupSymbol           rune
@@ -87,6 +99,7 @@ type Locale struct {
 	DaySymbol             [7]CalendarSymbol
 	DayPeriodSymbol       [2]CalendarSymbol
 	TimezoneCity          map[string]string
+	Metazones             map[string]Metazone
 
 	Currency map[string]Currency
 	Unit     map[string]Unit
@@ -120,6 +133,7 @@ func main() {
 			Unit:         map[string]Unit{},
 			Territory:    map[string]string{},
 			TimezoneCity: map[string]string{},
+			Metazones:    map[string]Metazone{},
 		}
 		if !tag.IsRoot() {
 			parent := tag.Parent().String()
@@ -142,14 +156,19 @@ func main() {
 					locale.Unit[k] = v
 				}
 
+				locale.Territory = make(map[string]string, len(parentLocale.Territory))
+				for k, v := range parentLocale.Territory {
+					locale.Territory[k] = v
+				}
+
 				locale.TimezoneCity = make(map[string]string, len(parentLocale.TimezoneCity))
 				for k, v := range parentLocale.TimezoneCity {
 					locale.TimezoneCity[k] = v
 				}
 
-				locale.Territory = make(map[string]string, len(parentLocale.Territory))
-				for k, v := range parentLocale.Territory {
-					locale.Territory[k] = v
+				locale.Metazones = make(map[string]Metazone, len(parentLocale.Metazones))
+				for k, v := range parentLocale.Metazones {
+					locale.Metazones[k] = v
 				}
 			}
 		}
@@ -267,15 +286,17 @@ func main() {
 						locale.DateFormat.Short = content
 					}
 				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/timeFormats/timeFormatLength[type]/timeFormat/pattern") {
-					length := attrs[len(attrs)-3]["type"]
-					if length == "full" {
-						locale.TimeFormat.Full = content
-					} else if length == "long" {
-						locale.TimeFormat.Long = content
-					} else if length == "medium" {
-						locale.TimeFormat.Medium = content
-					} else if length == "short" {
-						locale.TimeFormat.Short = content
+					if _, ok := attrs[len(attrs)-1]["alt"]; !ok {
+						length := attrs[len(attrs)-3]["type"]
+						if length == "full" {
+							locale.TimeFormat.Full = content
+						} else if length == "long" {
+							locale.TimeFormat.Long = content
+						} else if length == "medium" {
+							locale.TimeFormat.Medium = content
+						} else if length == "short" {
+							locale.TimeFormat.Short = content
+						}
 					}
 				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/dateTimeFormatLength[type]/dateTimeFormat/pattern") {
 					length := attrs[len(attrs)-3]["type"]
@@ -297,15 +318,41 @@ func main() {
 					locale.DatetimeIntervalFormat[""][""] = content
 				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/intervalFormats/intervalFormatItem[id]/greatestDifference[id]") {
 					id := attrs[len(attrs)-2]["id"]
-					if format := datetimeAvailableFormat[id]; format != "" {
-						if _, ok := locale.DatetimeIntervalFormat[format]; !ok {
-							locale.DatetimeIntervalFormat[format] = map[string]string{}
-						}
-						greatestDifference := attrs[len(attrs)-1]["id"]
-						locale.DatetimeIntervalFormat[format][greatestDifference] = content
+					if _, ok := locale.DatetimeIntervalFormat[id]; !ok {
+						locale.DatetimeIntervalFormat[id] = map[string]string{}
 					}
-				} else if isTag(tags, attrs, "ldml/dates/timeZonNames/zone[type]/exemplarCity") {
+					greatestDifference := attrs[len(attrs)-1]["id"]
+					locale.DatetimeIntervalFormat[id][greatestDifference] = content
+				} else if isTag(tags, attrs, "ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/appendItems/appendItem[request]") {
+					if attrs[len(attrs)-1]["request"] == "Timezone" {
+						locale.TimezoneFormat = content
+					}
+				} else if isTag(tags, attrs, "ldml/dates/timeZoneNames/zone[type]/exemplarCity") {
 					locale.TimezoneCity[attrs[len(attrs)-2]["type"]] = content
+				} else if isTag(tags, attrs, "ldml/dates/timeZoneNames/metazone[type]/*/*") {
+					typ := attrs[len(attrs)-3]["type"]
+					metazone := locale.Metazones[typ]
+					switch tags[len(tags)-2] {
+					case "long":
+						switch tags[len(tags)-1] {
+						case "generic":
+							metazone.Generic.Long = content
+						case "standard":
+							metazone.Standard.Long = content
+						case "daylight":
+							metazone.Daylight.Long = content
+						}
+					case "short":
+						switch tags[len(tags)-1] {
+						case "generic":
+							metazone.Generic.Short = content
+						case "standard":
+							metazone.Standard.Short = content
+						case "daylight":
+							metazone.Daylight.Short = content
+						}
+					}
+					locale.Metazones[typ] = metazone
 				} else if isTag(tags, attrs, "ldml/units/unitLength[type]/unit[type]/unitPattern[count]") {
 					if unitName := attrs[len(attrs)-2]["type"]; strings.HasPrefix(unitName, "duration-") {
 						var count *Count
@@ -402,6 +449,20 @@ func main() {
 		panic(err)
 	}
 
+	metazones := map[string]string{}
+	err = readXMLLeafs("supplemental/metaZones.xml", func(tags []string, attrs []map[string]string, content string) {
+		if isTag(tags, attrs, "supplementalData/metaZones/metazoneInfo/timezone[type]/usesMetazone[mzone]") {
+			if attrs[len(attrs)-1]["to"] == "" {
+				timezone := attrs[len(attrs)-2]["type"]
+				metazone := attrs[len(attrs)-1]["mzone"]
+				metazones[timezone] = metazone
+			}
+		}
+	})
+	if err != nil {
+		panic(err)
+	}
+
 	f, err := os.Create("cldr.go")
 	if err != nil {
 		panic(err)
@@ -414,7 +475,7 @@ func main() {
 	w.Write([]byte("// Automatically generated by gen_cldr.go\n"))
 	w.Write([]byte("package locale\n"))
 
-	types := []interface{}{CurrencyFormat{}, CalendarFormat{}, CalendarSymbol{}, Count{}, Currency{}, Unit{}, Locale{}, CurrencyInfo{}}
+	types := []interface{}{CurrencyFormat{}, CalendarFormat{}, CalendarSymbol{}, Count{}, Currency{}, Unit{}, Locale{}, CurrencyInfo{}, MetazoneSymbol{}, Metazone{}}
 	for _, v := range types {
 		t := reflect.TypeOf(v)
 		fmt.Fprintf(w, "\ntype %v ", t.Name())
@@ -432,6 +493,12 @@ func main() {
 
 	fmt.Fprintf(w, "\nvar currencies = map[string]CurrencyInfo")
 	if err := printValue(w, reflect.ValueOf(currencyInfos), 0); err != nil {
+		panic(err)
+	}
+	fmt.Fprintf(w, "\n")
+
+	fmt.Fprintf(w, "\nvar metazones = map[string]string")
+	if err := printValue(w, reflect.ValueOf(metazones), 0); err != nil {
 		panic(err)
 	}
 	fmt.Fprintf(w, "\n")
