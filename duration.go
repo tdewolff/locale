@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -135,14 +136,16 @@ func (d *Duration) Scan(isrc interface{}) error {
 }
 
 func (d Duration) Value() (driver.Value, error) {
-	return d.String(), nil
+	return int64(math.Round(time.Duration(d).Seconds())), nil
 }
 
 // Available duration layouts
 const (
-	DurationLong   string = "second"
-	DurationShort         = "sec"
-	DurationNarrow        = "s"
+	DurationLong    string = "second"
+	DurationShort          = "sec"
+	DurationNarrow         = "s"
+	DurationTime           = "15:04"
+	DurationDigital        = "15:04:05"
 )
 
 type DurationFormatter struct {
@@ -165,6 +168,26 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 		f.Duration = -f.Duration
 	}
 
+	switch f.Layout {
+	case DurationTime:
+		hours := int64(f.Duration.Hours())
+		minutes := int64(f.Duration.Minutes()) - hours*60
+		b = append(b, fmt.Sprintf("%02d:%02d", hours, minutes)...)
+		state.Write(b)
+		return
+	case DurationDigital:
+		hours := int64(f.Duration.Hours())
+		minutes := int64(f.Duration.Minutes()) - hours*60
+		seconds := int64(f.Duration.Seconds()) - hours*3600 - minutes*60
+		if 0 < hours {
+			b = append(b, fmt.Sprintf("%d:%02d:%02d", hours, minutes, seconds)...)
+		} else {
+			b = append(b, fmt.Sprintf("%d:%02d", minutes, seconds)...)
+		}
+		state.Write(b)
+		return
+	}
+
 	approximate := strings.HasPrefix(f.Layout, "≈")
 	if approximate {
 		f.Layout = strings.TrimPrefix(f.Layout, "≈")
@@ -175,11 +198,7 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 	unitSize := []int64{7 * 24 * 3600 * 1e9, 24 * 3600 * 1e9, 3600 * 1e9, 60 * 1e9, 1e9, 1e6, 1e3, 1}
 	for i := 0; num != 0 && i < len(unitType); i++ {
 		if _, ok := locale.Unit["duration-"+unitType[i]]; ok {
-			n := num / unitSize[i]
-			if approximate && unitSize[i]/2 <= num%unitSize[i] {
-				n++
-			}
-			if n != 0 {
+			if n := num / unitSize[i]; n != 0 {
 				var count Count
 				switch f.Layout {
 				case DurationLong:
@@ -190,7 +209,7 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 					count = locale.Unit["duration-"+unitType[i]].Narrow
 				default:
 					log.Printf("INFO: locale: unsupported duration format: %v\n", f.Layout)
-					continue
+					return
 				}
 
 				pattern := count.Other
@@ -210,13 +229,44 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 		}
 	}
 	state.Write(b)
-	return
 }
 
 type DurationIntervalFormatter struct {
 	Time time.Time
 	time.Duration
 	Layout string
+}
+
+type IntervalSymbol int
+
+const (
+	Nanosecond  IntervalSymbol = 0
+	Microsecond IntervalSymbol = 1
+	Millisecond IntervalSymbol = 2
+	Second      IntervalSymbol = 3
+	Minute      IntervalSymbol = 4
+	Hour        IntervalSymbol = 5
+	Day         IntervalSymbol = 6
+	Week        IntervalSymbol = 7
+	Month       IntervalSymbol = 8
+	Year        IntervalSymbol = 9
+	Decade      IntervalSymbol = 10
+	Century     IntervalSymbol = 11
+)
+
+var IntervalSymbols = map[string]IntervalSymbol{
+	"nanosecond":  Nanosecond,
+	"microsecond": Microsecond,
+	"millisecond": Millisecond,
+	"second":      Second,
+	"minute":      Minute,
+	"hour":        Hour,
+	"day":         Day,
+	"week":        Week,
+	"month":       Month,
+	"year":        Year,
+	"decade":      Decade,
+	"century":     Century,
 }
 
 func (f DurationIntervalFormatter) Format(state fmt.State, verb rune) {
@@ -226,10 +276,7 @@ func (f DurationIntervalFormatter) Format(state fmt.State, verb rune) {
 	}
 
 	var b []byte
-	if f.Duration == 0 {
-		log.Printf("INFO: locale: unsupported zero duration\n")
-		return
-	} else if f.Duration < 0 {
+	if f.Duration < 0 {
 		b = append(b, '-')
 		f.Duration = -f.Duration
 	}
@@ -238,8 +285,21 @@ func (f DurationIntervalFormatter) Format(state fmt.State, verb rune) {
 	if approximate {
 		f.Layout = strings.TrimPrefix(f.Layout, "≈")
 	}
+	minUnit, maxUnit := Nanosecond, Century
+	if bracket := strings.IndexByte(f.Layout, '['); bracket != -1 && strings.HasSuffix(f.Layout, "]") {
+		fields := strings.Split(f.Layout[bracket+1:len(f.Layout)-1], ",")
+		if unit, ok := IntervalSymbols[fields[0]]; ok {
+			minUnit = unit
+		}
+		if unit, ok := IntervalSymbols[fields[1]]; ok {
+			maxUnit = unit
+		}
+		f.Layout = f.Layout[:bracket]
+	}
 
+	written := false
 	write := func(unit string, n int) {
+		written = true
 		var count Count
 		switch f.Layout {
 		case DurationLong:
@@ -265,101 +325,102 @@ func (f DurationIntervalFormatter) Format(state fmt.State, verb rune) {
 	}
 
 	start, end := f.Time, f.Time.Add(f.Duration)
-	if _, ok := locale.Unit["duration-century"]; ok {
+	if _, ok := locale.Unit["duration-century"]; ok && minUnit <= Century && Century <= maxUnit {
 		n := 0
 		for !end.Before(start.AddDate(100, 0, 0)) {
 			start = start.AddDate(100, 0, 0)
 			n++
 		}
-		if approximate && !end.Before(start.AddDate(50, 0, 0)) {
+		if (approximate || minUnit == Century) && !end.Before(start.AddDate(50, 0, 0)) {
 			start = end
 			n++
 		}
-		if 0 < n {
+		if 0 < n || minUnit == Century && !written {
 			write("century", n)
 		}
 	}
-	if _, ok := locale.Unit["duration-decade"]; ok {
+	if _, ok := locale.Unit["duration-decade"]; ok && minUnit <= Decade && Decade <= maxUnit {
 		n := 0
 		for !end.Before(start.AddDate(10, 0, 0)) {
 			start = start.AddDate(10, 0, 0)
 			n++
 		}
-		if approximate && !end.Before(start.AddDate(5, 0, 0)) {
+		if (approximate || minUnit == Decade) && !end.Before(start.AddDate(5, 0, 0)) {
 			start = end
 			n++
 		}
-		if 0 < n {
+		if 0 < n || minUnit == Decade && !written {
 			write("decade", n)
 		}
 	}
-	if _, ok := locale.Unit["duration-year"]; ok {
+	if _, ok := locale.Unit["duration-year"]; ok && minUnit <= Year && Year <= maxUnit {
 		n := 0
 		for !end.Before(start.AddDate(1, 0, 0)) {
 			start = start.AddDate(1, 0, 0)
 			n++
 		}
-		if approximate && !end.Before(start.AddDate(0, 6, 0)) {
+		if (approximate || minUnit == Year) && !end.Before(start.AddDate(0, 6, 0)) {
 			start = end
 			n++
 		}
-		if 0 < n {
+		if 0 < n || minUnit == Year && !written {
 			write("year", n)
 		}
 	}
-	if _, ok := locale.Unit["duration-month"]; ok {
+	if _, ok := locale.Unit["duration-month"]; ok && minUnit <= Month && Month <= maxUnit {
 		n := 0
 		for !end.Before(start.AddDate(0, 1, 0)) {
 			start = start.AddDate(0, 1, 0)
 			n++
 		}
-		if halfMonth := start.AddDate(0, 1, 0).Sub(start) / 2; approximate && !end.Before(start.Add(halfMonth)) {
+		if halfMonth := start.AddDate(0, 1, 0).Sub(start) / 2; (approximate || minUnit == Month) && !end.Before(start.Add(halfMonth)) {
 			start = end
 			n++
 		}
-		if 0 < n {
+		if 0 < n || minUnit == Month && !written {
 			write("month", n)
 		}
 	}
-	if _, ok := locale.Unit["duration-week"]; ok {
+	if _, ok := locale.Unit["duration-week"]; ok && minUnit <= Week && Week <= maxUnit {
 		n := 0
 		for !end.Before(start.AddDate(0, 0, 7)) {
 			start = start.AddDate(0, 0, 7)
 			n++
 		}
-		if halfWeek := start.AddDate(0, 0, 7).Sub(start) / 2; approximate && !end.Before(start.Add(halfWeek)) {
+		if halfWeek := start.AddDate(0, 0, 7).Sub(start) / 2; (approximate || minUnit == Week) && !end.Before(start.Add(halfWeek)) {
 			start = end
 			n++
 		}
-		if 0 < n {
+		if 0 < n || minUnit == Week && !written {
 			write("week", n)
 		}
 	}
-	if _, ok := locale.Unit["duration-day"]; ok {
+	if _, ok := locale.Unit["duration-day"]; ok && minUnit <= Day && Day <= maxUnit {
 		n := 0
 		for !end.Before(start.AddDate(0, 0, 1)) {
 			start = start.AddDate(0, 0, 1)
 			n++
 		}
-		if approximate && !end.Before(start.Add(12*time.Hour)) {
+		if (approximate || minUnit == Day) && !end.Before(start.Add(12*time.Hour)) {
 			start = end
 			n++
 		}
-		if 0 < n {
+		if 0 < n || minUnit == Day && !written {
 			write("day", n)
 		}
 	}
 
 	num := int64(end.Sub(start))
-	unitType := []string{"hour", "minute", "second", "millisecond", "microsecond", "nanosecond"}
 	unitSize := []int64{3600 * 1e9, 60 * 1e9, 1e9, 1e6, 1e3, 1}
-	for i := 0; num != 0 && i < len(unitType); i++ {
-		if _, ok := locale.Unit["duration-"+unitType[i]]; ok {
+	unitSymbol := []IntervalSymbol{Hour, Minute, Second, Millisecond, Microsecond, Nanosecond}
+	unitType := []string{"hour", "minute", "second", "millisecond", "microsecond", "nanosecond"}
+	for i := 0; num != 0 && i < len(unitSymbol) && minUnit <= unitSymbol[i]; i++ {
+		if _, ok := locale.Unit["duration-"+unitType[i]]; ok && unitSymbol[i] <= maxUnit {
 			n := num / unitSize[i]
-			if approximate && unitSize[i]/2 <= num%unitSize[i] {
+			if (approximate || minUnit == unitSymbol[i]) && unitSize[i]/2 <= num%unitSize[i] {
 				n++
 			}
-			if n != 0 {
+			if n != 0 || minUnit == unitSymbol[i] && !written {
 				write(unitType[i], int(n))
 				if approximate {
 					break

@@ -16,9 +16,14 @@ import (
 	"github.com/tdewolff/parse/v2/strconv"
 )
 
+var ErrOverflow = fmt.Errorf("overflow")
+var ErrUnderflow = fmt.Errorf("underflow")
+
 // AmountPrecision is the number of extra decimals after the currency's default number of digits
 // Most currencies have 2 digits (cents) and thus will use 5 digitis for arithmetics
 const AmountPrecision = 3
+
+const MaxAmount = 1<<63 - 1
 
 var int64Scales = [...]int64{
 	1,
@@ -60,7 +65,7 @@ func ParseAmountBytes(unit currency.Unit, b []byte) (Amount, error) {
 	if n != len(b) {
 		return Amount{}, fmt.Errorf("invalid amount: %v", string(b))
 	}
-	return NewAmount(unit, amount, dec), nil
+	return NewAmount(unit, amount, dec)
 }
 
 func ParseAmountLocale(tag language.Tag, unit currency.Unit, s string) (Amount, error) {
@@ -69,37 +74,75 @@ func ParseAmountLocale(tag language.Tag, unit currency.Unit, s string) (Amount, 
 	if n != len(s) {
 		return Amount{}, fmt.Errorf("invalid amount: %v", s)
 	}
-	return NewAmount(unit, amount, dec), nil
+	return NewAmount(unit, amount, dec)
 }
 
-func NewZeroAmount(unit currency.Unit) Amount {
-	cur := GetCurrency(unit)
-	return Amount{unit, 0, cur.Digits, cur.Rounding}
+func MustNewZeroAmount(unit currency.Unit) Amount {
+	a, err := NewZeroAmount(unit)
+	if err != nil {
+		panic(err)
+	}
+	return a
 }
 
-func NewAmount(unit currency.Unit, amount int64, dec int) Amount {
+func NewZeroAmount(unit currency.Unit) (Amount, error) {
 	cur := GetCurrency(unit)
+	if cur.Rounding != 0 && cur.Rounding != 1 && cur.Rounding != 10 && cur.Rounding != 100 {
+		panic(fmt.Sprintf("unsupported currency rounding: %v", cur.Rounding))
+	}
+	return Amount{unit, 0, cur.Digits, cur.Rounding}, nil
+}
+
+func MustNewAmount(unit currency.Unit, amount int64, dec int) Amount {
+	a, err := NewAmount(unit, amount, dec)
+	if err != nil {
+		panic(err)
+	}
+	return a
+}
+
+func NewAmount(unit currency.Unit, amount int64, dec int) (Amount, error) {
+	cur := GetCurrency(unit)
+	if cur.Rounding != 0 && cur.Rounding != 1 && cur.Rounding != 10 && cur.Rounding != 100 {
+		return Amount{}, fmt.Errorf("unsupported currency rounding: %v", cur.Rounding)
+	}
 	prec := cur.Digits + AmountPrecision
 	if dec < prec {
 		scale := int64Scales[prec-dec]
-		if math.MaxInt64/scale < amount {
-			panic("overflow")
-		} else if amount < math.MinInt64/scale {
-			panic("underflow")
+		if MaxAmount/scale < amount {
+			return Amount{}, ErrOverflow
+		} else if amount < -MaxAmount/scale {
+			return Amount{}, ErrUnderflow
 		}
 		amount *= scale
 	} else if prec < dec {
 		amount = bankersRounding(amount, dec-prec)
 		amount /= int64Scales[dec-prec]
 	}
-	return Amount{unit, amount, cur.Digits, cur.Rounding}
+	return Amount{unit, amount, cur.Digits, cur.Rounding}, nil
 }
 
-func NewAmountFromFloat64(unit currency.Unit, amount float64) Amount {
+func MustNewAmountFromFloat64(unit currency.Unit, amount float64) Amount {
+	a, err := NewAmountFromFloat64(unit, amount)
+	if err != nil {
+		panic(err)
+	}
+	return a
+}
+
+func NewAmountFromFloat64(unit currency.Unit, amount float64) (Amount, error) {
 	cur := GetCurrency(unit)
+	if cur.Rounding != 0 && cur.Rounding != 1 && cur.Rounding != 10 && cur.Rounding != 100 {
+		return Amount{}, fmt.Errorf("unsupported currency rounding: %v", cur.Rounding)
+	}
 	prec := cur.Digits + AmountPrecision
-	a := int64(math.RoundToEven(amount * math.Pow10(prec)))
-	return Amount{unit, a, cur.Digits, cur.Rounding}
+	amount = math.RoundToEven(amount * math.Pow10(prec))
+	if float64(MaxAmount) < amount {
+		return Amount{}, ErrOverflow
+	} else if amount < float64(-MaxAmount) {
+		return Amount{}, ErrUnderflow
+	}
+	return Amount{unit, int64(amount), cur.Digits, cur.Rounding}, nil
 }
 
 // Zero returns the zero value for the amount (keep the currency).
@@ -126,18 +169,18 @@ func normaliseAmounts(a, b Amount) (int64, int64, bool) {
 		return 0, 0, false
 	}
 	for a.digits < b.digits {
-		if 0 < a.amount && math.MaxInt64/10 < a.amount {
+		if 0 < a.amount && MaxAmount/10 < a.amount {
 			return 0, 0, false // overflow
-		} else if a.amount < 0 && a.amount < math.MinInt64/10 {
+		} else if a.amount < 0 && a.amount < -MaxAmount/10 {
 			return 0, 0, false // underflow
 		}
 		a.amount *= 10
 		a.digits++
 	}
 	for b.digits < a.digits {
-		if 0 < b.amount && math.MaxInt64/10 < b.amount {
+		if 0 < b.amount && MaxAmount/10 < b.amount {
 			return 0, 0, false // overflow
-		} else if b.amount < 0 && b.amount < math.MinInt64/10 {
+		} else if b.amount < 0 && b.amount < -MaxAmount/10 {
 			return 0, 0, false // underflow
 		}
 		b.amount *= 10
@@ -186,7 +229,7 @@ func bankersRounding(amount int64, prec int) int64 {
 }
 
 // round performs banker's rounding to the given increments
-func (a Amount) round(incr int) Amount {
+func (a Amount) round(incr int) (Amount, error) {
 	prec := AmountPrecision
 	switch incr {
 	case 0, 1:
@@ -196,79 +239,101 @@ func (a Amount) round(incr int) Amount {
 	case 100:
 		prec += 2
 	default:
-		panic(fmt.Sprintf("unexpected increment: %v", incr))
+		return Amount{}, fmt.Errorf("unexpected increment: %v", incr)
 	}
 	a.amount = bankersRounding(a.amount, prec)
-	return a
+	return a, nil
 }
 
 // Round performs banker's rounding to the currency's increments
 func (a Amount) Round() Amount {
-	return a.round(a.rounding)
+	a, _ = a.round(a.rounding)
+	return a
 }
 
 func (a Amount) Neg() Amount {
-	if a.amount == math.MinInt64 {
-		panic("overflow")
-	}
-	a.amount = -a.amount
+	a.amount = -a.amount // can never overflow
 	return a
 }
 
 func (a Amount) Abs() Amount {
 	if a.amount < 0 {
-		a.Neg()
+		return a.Neg()
 	}
 	return a
 }
 
-func (a Amount) Add(b Amount) Amount {
+func (a Amount) MustAdd(b Amount) Amount {
+	c, err := a.Add(b)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func (a Amount) Add(b Amount) (Amount, error) {
 	if a.Unit != b.Unit {
 		if a == ZeroAmount {
-			return b
+			return b, nil
 		}
-		panic(fmt.Sprintf("currencies don't match: %v != %v", a.Unit, b.Unit))
-	} else if 0 < b.amount && math.MaxInt64-b.amount < a.amount {
-		panic("overflow")
-	} else if b.amount == math.MinInt64 || b.amount < 0 && a.amount < math.MinInt64-b.amount {
-		panic("underflow")
+		return Amount{}, fmt.Errorf("currencies don't match: %v != %v", a.Unit, b.Unit)
+	} else if 0 < b.amount && MaxAmount-b.amount < a.amount {
+		return Amount{}, ErrOverflow
+	} else if b.amount < 0 && a.amount < -MaxAmount-b.amount {
+		return Amount{}, ErrUnderflow
 	}
 	a.amount += b.amount
-	return a
+	return a, nil
 }
 
-func (a Amount) Sub(b Amount) Amount {
+func (a Amount) MustSub(b Amount) Amount {
+	c, err := a.Sub(b)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func (a Amount) Sub(b Amount) (Amount, error) {
 	if a.Unit != b.Unit {
 		if a == ZeroAmount {
-			return b.Neg()
+			return b.Neg(), nil
 		}
-		panic(fmt.Sprintf("currencies don't match: %v != %v", a.Unit, b.Unit))
-	} else if 0 < b.amount && a.amount < math.MinInt64+b.amount {
-		panic("underflow")
-	} else if b.amount == math.MinInt64 || b.amount < 0 && math.MaxInt64+b.amount < a.amount {
-		panic("overflow")
+		return Amount{}, fmt.Errorf("currencies don't match: %v != %v", a.Unit, b.Unit)
+	} else if 0 < b.amount && a.amount < -MaxAmount+b.amount {
+		return Amount{}, ErrUnderflow
+	} else if b.amount < 0 && MaxAmount+b.amount < a.amount {
+		return Amount{}, ErrOverflow
 	}
 	a.amount -= b.amount
-	return a
+	return a, nil
 }
 
-func (a Amount) Mul(f int) Amount {
+func (a Amount) MustMul(f int) Amount {
+	c, err := a.Mul(f)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func (a Amount) Mul(f int) (Amount, error) {
 	// TODO: is this right?
-	if 1 < f && 0 < a.amount && math.MaxInt64/int64(f) < a.amount {
-		panic("overflow")
-	} else if 1 < f && a.amount < 0 && a.amount < math.MinInt64/int64(f) {
-		panic("underflow")
-	} else if f < -1 && a.amount < 0 && math.MaxInt64/int64(-f) < -a.amount {
-		panic("overflow")
-	} else if f < -1 && 0 < a.amount && math.MinInt64/int64(f) < a.amount {
-		panic("underflow")
+	if 1 < f && 0 < a.amount && MaxAmount/int64(f) < a.amount {
+		return Amount{}, ErrOverflow
+	} else if 1 < f && a.amount < 0 && a.amount < -MaxAmount/int64(f) {
+		return Amount{}, ErrUnderflow
+	} else if f < -1 && a.amount < 0 && MaxAmount/int64(-f) < -a.amount {
+		return Amount{}, ErrOverflow
+	} else if f < -1 && 0 < a.amount && -MaxAmount/int64(f) < a.amount {
+		return Amount{}, ErrUnderflow
 	}
 	a.amount *= int64(f)
-	return a
+	return a, nil
 }
 
 func (a Amount) Div(f int) Amount {
-	if a.amount < math.MaxInt64/10 {
+	if a.amount < MaxAmount/10 {
 		a.amount = bankersRounding(a.amount*10/int64(f), 1) / 10
 	} else {
 		// TODO: to proper rounding
@@ -285,17 +350,25 @@ func (a Amount) DivAmount(b Amount) float64 {
 	return float64(A) / float64(B)
 }
 
-func (a Amount) Mulf(f float64) Amount {
+func (a Amount) MustMulf(f float64) Amount {
+	c, err := a.Mulf(f)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func (a Amount) Mulf(f float64) (Amount, error) {
 	// TODO: is this right?
 	incr := 1.0 < f && 0 < a.amount || f < -1.0 && a.amount < 0
 	decr := f < -1.0 && 0 < a.amount || 1.0 < f && a.amount < 0
-	if incr && float64(math.MaxInt64) < f*float64(a.amount) {
-		panic("overflow")
-	} else if decr && f*float64(a.amount) < float64(math.MinInt64) {
-		panic("underflow")
+	if incr && float64(MaxAmount) < f*float64(a.amount) {
+		return Amount{}, ErrOverflow
+	} else if decr && f*float64(a.amount) < float64(-MaxAmount) {
+		return Amount{}, ErrUnderflow
 	}
 	a.amount = int64(math.RoundToEven(float64(a.amount) * f))
-	return a
+	return a, nil
 }
 
 func (a Amount) Float64() float64 {
@@ -306,9 +379,13 @@ func (a Amount) Amount() (int64, int) {
 	return a.amount, a.digits + AmountPrecision
 }
 
-func (a Amount) AmountRounded() (int64, int) {
-	a = a.round(1)
-	return a.amount / int64Scales[AmountPrecision], a.digits
+func (a Amount) AmountRounded() (int64, int, error) {
+	var err error
+	a, err = a.round(1)
+	if err != nil {
+		return 0, 0, err
+	}
+	return a.amount / int64Scales[AmountPrecision], a.digits, nil
 }
 
 func (a Amount) StringAmount() string {
@@ -330,7 +407,10 @@ func (a Amount) StringAmount() string {
 
 func (a Amount) String() string {
 	var b []byte
-	amount, dec := a.AmountRounded()
+	amount, dec, err := a.AmountRounded()
+	if err != nil {
+		return ""
+	}
 	b = strconv.AppendNumber(b, amount, dec, 3, ',', '.')
 	return a.Unit.String() + " " + string(b)
 }
@@ -452,6 +532,8 @@ func (f CurrencyFormatter) Format(state fmt.State, verb rune) {
 	s := ""
 	unit := f.Unit.String()
 	switch f.Layout {
+	case "US Dollar":
+		s = locale.Currency[unit].Name
 	case "USD":
 		s = unit
 	case "US$":

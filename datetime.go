@@ -14,14 +14,22 @@ import (
 
 // Available time layouts, otherwise falls back to time.Time.Format and translates the individual parts. The order and punctuation may not be in accordance with locale in that case. You can combine any date with time layout by concatenation: {date} + space + {time}
 const (
-	DateFull   string = "Monday, January 2, 2006"
-	DateLong          = "January 2, 2006"
-	DateMedium        = "Jan. 2, 2006"
-	DateShort         = "1/2/06"
-	TimeFull          = "15:04:05 Mountain Standard Time"
-	TimeLong          = "15:04:05 MST"
-	TimeMedium        = "15:04:05"
-	TimeShort         = "15:04"
+	DateFull             string = "Monday, January 2, 2006"
+	DateLong                    = "January 2, 2006"
+	DateMedium                  = "Jan. 2, 2006"
+	DateShort                   = "1/2/06"
+	TimeFull                    = "15:04:05 Mountain Standard Time"
+	TimeLong                    = "15:04:05 MST"
+	TimeMedium                  = "15:04:05"
+	TimeShort                   = "15:04"
+	TimezoneLong                = "Mountain Standard Time"
+	TimezoneShort               = "MST"
+	TimezoneGenericLong         = "Mountain Time"
+	TimezoneGenericShort        = "MT"
+	TimezoneGMTLong             = "GMT-07:00"
+	TimezoneGMTShort            = "GMT-7"
+	TimezoneLocation            = "America/Phoenix"
+	TimezoneCity                = "Phoenix"
 )
 
 type TimeFormatter struct {
@@ -273,7 +281,11 @@ func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([
 		case "MM":
 			b = t.AppendFormat(b, "01")
 		case "MMM":
-			b = append(b, []byte(locale.MonthSymbol[t.Month()-1].Abbreviated)...)
+			if locale.MonthSymbol[t.Month()-1].Abbreviated == "" {
+				b = append(b, []byte(locale.MonthSymbol[t.Month()-1].Wide)...)
+			} else {
+				b = append(b, []byte(locale.MonthSymbol[t.Month()-1].Abbreviated)...)
+			}
 		case "MMMM":
 			b = append(b, []byte(locale.MonthSymbol[t.Month()-1].Wide)...)
 		case "MMMMM":
@@ -715,14 +727,45 @@ func scanTime(t *time.Time, isrc interface{}) error {
 
 type TimezoneFormatter struct {
 	*time.Location
+	Layout string
 }
 
 func (f TimezoneFormatter) Format(state fmt.State, verb rune) {
-	//locale := locales["root"]
-	//if languager, ok := state.(Languager); ok {
-	//	locale = GetLocale(languager.Language())
-	//}
-	state.Write([]byte(f.Location.String()))
+	locale := locales["root"]
+	if languager, ok := state.(Languager); ok {
+		locale = GetLocale(languager.Language())
+	}
+
+	timezone := f.Location.String()
+	if alias, ok := timezoneAliases[timezone]; ok {
+		timezone = alias
+	}
+
+	var pattern string
+	switch f.Layout {
+	case TimezoneLong:
+		pattern = "zzzz"
+	case TimezoneShort:
+		pattern = "z"
+	case TimezoneGenericLong:
+		pattern = "vvvv"
+	case TimezoneGenericShort:
+		pattern = "v"
+	case TimezoneGMTLong:
+		pattern = "OOOO"
+	case TimezoneGMTShort:
+		pattern = "O"
+	case TimezoneLocation:
+		pattern = "VV"
+	case TimezoneCity:
+		pattern = "VVV"
+	default:
+		pattern = "zzzz"
+	}
+
+	var b []byte
+	b, _, _ = formatDatetimeItem(b, pattern, locale, time.Now().In(f.Location))
+	state.Write(b)
 }
 
 // from https://github.com/arp242/tz/blob/3c7bf612261228ea207792aef3a725c2fec518c6/alias.go

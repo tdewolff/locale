@@ -58,6 +58,8 @@ func (p *Printer) T(a ...any) string {
 			case time.Time:
 				v = v.In(p.Location)
 				return p.Sprintf("%v", TimeFormatter{v, layout})
+			case *time.Location:
+				return p.Sprintf("%v", TimezoneFormatter{v, layout})
 			case time.Duration:
 				return p.Sprintf("%v", DurationFormatter{v, layout})
 			case Duration:
@@ -92,8 +94,6 @@ func (p *Printer) T(a ...any) string {
 			return p.Sprintf("%v", DecimalFormatter{v})
 		case language.Region:
 			return p.Sprintf("%v", RegionFormatter{v})
-		case *time.Location:
-			return p.Sprintf("%v", TimezoneFormatter{v})
 		}
 	}
 	return p.Sprint(a...)
