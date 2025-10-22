@@ -46,36 +46,7 @@ func (f TimeFormatter) Format(state fmt.State, verb rune) {
 	pattern, datePattern, timePattern := layoutToPatterns(locale, f.Layout)
 	pattern = strings.ReplaceAll(pattern, "{0}", timePattern)
 	pattern = strings.ReplaceAll(pattern, "{1}", datePattern)
-
-	var b []byte
-	for i := 0; i < len(pattern); {
-		r, n := utf8.DecodeRuneInString(pattern[i:])
-		switch r {
-		case '\'':
-			j := i + 1
-			for j < len(pattern) {
-				if pattern[j] == '\'' {
-					break
-				}
-				j++
-			}
-			b = append(b, pattern[i+1:j]...)
-			i = j + 1
-		default:
-			var m int
-			var ok bool
-			if b, m, ok = formatDatetimeItem(b, pattern[i:], locale, f.Time); !ok {
-				state.Write([]byte(f.Time.Format(f.Layout)))
-				return
-			} else if m != 0 {
-				i += m
-			} else {
-				b = utf8.AppendRune(b, r)
-				i += n
-			}
-		}
-	}
-	state.Write(b)
+	state.Write(formatTime([]byte{}, pattern, locale, f.Time))
 }
 
 type IntervalFormatter struct {
@@ -143,9 +114,11 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 				intervalPattern = strings.ReplaceAll(intervalPattern, "{1}", timePattern)
 			}
 		} else {
-			intervalPattern = locale.DatetimeIntervalFormat[""][""]
-			intervalPattern = strings.ReplaceAll(intervalPattern, "{0}", fullPattern)
-			intervalPattern = strings.ReplaceAll(intervalPattern, "{1}", fullPattern)
+			b := []byte(locale.DatetimeIntervalFormat[""][""])
+			b = bytes.ReplaceAll(b, []byte("{0}"), formatTime([]byte{}, fullPattern, locale, f.From))
+			b = bytes.ReplaceAll(b, []byte("{1}"), formatTime([]byte{}, fullPattern, locale, f.To))
+			state.Write(b)
+			return
 		}
 	}
 	state.Write(formatInterval([]byte{}, intervalPattern, locale, f.From, f.To))
@@ -200,6 +173,37 @@ func getIntervalPattern(locale Locale, pattern, greatestDifference string) (stri
 		return intervalPattern, ok
 	}
 	return "", false
+}
+
+func formatTime(b []byte, pattern string, locale Locale, t time.Time) []byte {
+	for i := 0; i < len(pattern); {
+		r, n := utf8.DecodeRuneInString(pattern[i:])
+		switch r {
+		case '\'':
+			j := i + 1
+			for j < len(pattern) {
+				if pattern[j] == '\'' {
+					break
+				}
+				j++
+			}
+			b = append(b, pattern[i+1:j]...)
+			i = j + 1
+		default:
+			var m int
+			var ok bool
+			if b, m, ok = formatDatetimeItem(b, pattern[i:], locale, t); !ok {
+				log.Printf("INFO: locale: unsupported date/time format: %v\n", pattern[i:i+m])
+				i += m
+			} else if m != 0 {
+				i += m
+			} else {
+				b = utf8.AppendRune(b, r)
+				i += n
+			}
+		}
+	}
+	return b
 }
 
 func formatInterval(b []byte, pattern string, locale Locale, from, to time.Time) []byte {

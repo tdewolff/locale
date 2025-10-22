@@ -213,101 +213,106 @@ func main() {
 				}
 				locale.Currency[cur] = currency
 			}
-			for _, n := range xmlLocale.FindAll("ldml/dates/calendars/calendar[type=gregorian]/months/monthContext[type]/monthWidth[type]/month[type]") {
-				if month, _ := strconv.Atoi(n.Attr("type")); 1 <= month && month <= 12 {
-					width := n.Parent.Attr("type")
-					context := n.Parent.Parent.Attr("type")
-					if context == "format" && width == "wide" {
-						locale.MonthSymbol[month-1].Wide = n.Text
-					} else if context == "format" && width == "abbreviated" {
-						locale.MonthSymbol[month-1].Abbreviated = n.Text
-					} else if context == "stand-alone" && width == "narrow" {
-						locale.MonthSymbol[month-1].Narrow = n.Text
+			if calendar, ok := xmlLocale.Find("ldml/dates/calendars/calendar[type=gregorian]"); ok {
+				if generic, ok := xmlLocale.Find("ldml/dates/calendars/calendar[type=generic]"); ok {
+					calendar.InheritFrom(generic)
+				}
+				for _, n := range calendar.FindAll("months/monthContext[type]/monthWidth[type]/month[type]") {
+					if month, _ := strconv.Atoi(n.Attr("type")); 1 <= month && month <= 12 {
+						width := n.Parent.Attr("type")
+						context := n.Parent.Parent.Attr("type")
+						if context == "format" && width == "wide" {
+							locale.MonthSymbol[month-1].Wide = n.Text
+						} else if context == "format" && width == "abbreviated" {
+							locale.MonthSymbol[month-1].Abbreviated = n.Text
+						} else if context == "stand-alone" && width == "narrow" {
+							locale.MonthSymbol[month-1].Narrow = n.Text
+						}
 					}
 				}
-			}
-			for _, n := range xmlLocale.FindAll("ldml/dates/calendars/calendar[type=gregorian]/days/dayContext[type]/dayWidth[type]/day[type]") {
-				if day, ok := dayMap[n.Attr("type")]; ok {
-					width := n.Parent.Attr("type")
-					context := n.Parent.Parent.Attr("type")
-					if context == "format" && width == "wide" {
-						locale.DaySymbol[day].Wide = n.Text
-					} else if context == "format" && width == "abbreviated" {
-						locale.DaySymbol[day].Abbreviated = n.Text
-					} else if context == "stand-alone" && width == "narrow" {
-						locale.DaySymbol[day].Narrow = n.Text
+				for _, n := range calendar.FindAll("days/dayContext[type]/dayWidth[type]/day[type]") {
+					if day, ok := dayMap[n.Attr("type")]; ok {
+						width := n.Parent.Attr("type")
+						context := n.Parent.Parent.Attr("type")
+						if context == "format" && width == "wide" {
+							locale.DaySymbol[day].Wide = n.Text
+						} else if context == "format" && width == "abbreviated" {
+							locale.DaySymbol[day].Abbreviated = n.Text
+						} else if context == "stand-alone" && width == "narrow" {
+							locale.DaySymbol[day].Narrow = n.Text
+						}
 					}
 				}
-			}
-			for _, n := range xmlLocale.FindAll("ldml/dates/calendars/calendar[type=gregorian]/dayPeriods/dayPeriodContext[type]/dayPeriodWidth[type]/dayPeriod[type]") {
-				if period := n.Attr("type"); period == "am" || period == "pm" {
-					i := 0
-					if period == "pm" {
-						i = 1
+				for _, n := range calendar.FindAll("dayPeriods/dayPeriodContext[type]/dayPeriodWidth[type]/dayPeriod[type]") {
+					if period := n.Attr("type"); period == "am" || period == "pm" {
+						i := 0
+						if period == "pm" {
+							i = 1
+						}
+						width := n.Parent.Attr("type")
+						context := n.Parent.Parent.Attr("type")
+						if context == "format" && width == "wide" {
+							locale.DayPeriodSymbol[i].Wide = n.Text
+						} else if context == "format" && width == "abbreviated" {
+							locale.DayPeriodSymbol[i].Abbreviated = n.Text
+						} else if context == "stand-alone" && width == "narrow" {
+							locale.DayPeriodSymbol[i].Narrow = n.Text
+						}
 					}
-					width := n.Parent.Attr("type")
-					context := n.Parent.Parent.Attr("type")
-					if context == "format" && width == "wide" {
-						locale.DayPeriodSymbol[i].Wide = n.Text
-					} else if context == "format" && width == "abbreviated" {
-						locale.DayPeriodSymbol[i].Abbreviated = n.Text
-					} else if context == "stand-alone" && width == "narrow" {
-						locale.DayPeriodSymbol[i].Narrow = n.Text
+				}
+				for _, n := range calendar.FindAll("dateFormats/dateFormatLength[type]/dateFormat/pattern") {
+					if length := n.Parent.Parent.Attr("type"); length == "full" {
+						locale.DateFormat.Full = n.Text
+					} else if length == "long" {
+						locale.DateFormat.Long = n.Text
+					} else if length == "medium" {
+						locale.DateFormat.Medium = n.Text
+					} else if length == "short" {
+						locale.DateFormat.Short = n.Text
 					}
 				}
-			}
-			for _, n := range xmlLocale.FindAll("ldml/dates/calendars/calendar[type=gregorian]/dateFormats/dateFormatLength[type]/dateFormat/pattern") {
-				if length := n.Parent.Parent.Attr("type"); length == "full" {
-					locale.DateFormat.Full = n.Text
-				} else if length == "long" {
-					locale.DateFormat.Long = n.Text
-				} else if length == "medium" {
-					locale.DateFormat.Medium = n.Text
-				} else if length == "short" {
-					locale.DateFormat.Short = n.Text
+				for _, n := range calendar.FindAll("timeFormats/timeFormatLength[type]/timeFormat/pattern[!alt]") {
+					if length := n.Parent.Parent.Attr("type"); length == "full" {
+						locale.TimeFormat.Full = n.Text
+					} else if length == "long" {
+						locale.TimeFormat.Long = n.Text
+					} else if length == "medium" {
+						locale.TimeFormat.Medium = n.Text
+					} else if length == "short" {
+						locale.TimeFormat.Short = n.Text
+					}
 				}
-			}
-			for _, n := range xmlLocale.FindAll("ldml/dates/calendars/calendar[type=gregorian]/timeFormats/timeFormatLength[type]/timeFormat/pattern[!alt]") {
-				if length := n.Parent.Parent.Attr("type"); length == "full" {
-					locale.TimeFormat.Full = n.Text
-				} else if length == "long" {
-					locale.TimeFormat.Long = n.Text
-				} else if length == "medium" {
-					locale.TimeFormat.Medium = n.Text
-				} else if length == "short" {
-					locale.TimeFormat.Short = n.Text
+				for _, n := range calendar.FindAll("dateTimeFormats/dateTimeFormatLength[type]/dateTimeFormat/pattern") {
+					if length := n.Parent.Parent.Attr("type"); length == "full" {
+						locale.DatetimeFormat.Full = n.Text
+					} else if length == "long" {
+						locale.DatetimeFormat.Long = n.Text
+					} else if length == "medium" {
+						locale.DatetimeFormat.Medium = n.Text
+					} else if length == "short" {
+						locale.DatetimeFormat.Short = n.Text
+					}
 				}
-			}
-			for _, n := range xmlLocale.FindAll("ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/dateTimeFormatLength[type]/dateTimeFormat/pattern") {
-				if length := n.Parent.Parent.Attr("type"); length == "full" {
-					locale.DatetimeFormat.Full = n.Text
-				} else if length == "long" {
-					locale.DatetimeFormat.Long = n.Text
-				} else if length == "medium" {
-					locale.DatetimeFormat.Medium = n.Text
-				} else if length == "short" {
-					locale.DatetimeFormat.Short = n.Text
+				for _, n := range calendar.FindAll("dateTimeFormats/availableFormats/dateFormatItem[id]") {
+					datetimeAvailableFormat[n.Attr("id")] = n.Text
 				}
-			}
-			for _, n := range xmlLocale.FindAll("ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/availableFormats/dateFormatItem[id]") {
-				datetimeAvailableFormat[n.Attr("id")] = n.Text
-			}
-			if n, ok := xmlLocale.Find("ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/intervalFormats/intervalFormatFallback"); ok {
-				if _, ok := locale.DatetimeIntervalFormat[""]; !ok {
-					locale.DatetimeIntervalFormat[""] = map[string]string{}
+				if n, ok := calendar.Find("dateTimeFormats/intervalFormats/intervalFormatFallback"); ok {
+					if _, ok := locale.DatetimeIntervalFormat[""]; !ok {
+						locale.DatetimeIntervalFormat[""] = map[string]string{}
+					}
+					locale.DatetimeIntervalFormat[""][""] = n.Text
 				}
-				locale.DatetimeIntervalFormat[""][""] = n.Text
-			}
-			for _, n := range xmlLocale.FindAll("ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/intervalFormats/intervalFormatItem[id]/greatestDifference[id]") {
-				id := n.Parent.Attr("id")
-				if _, ok := locale.DatetimeIntervalFormat[id]; !ok {
-					locale.DatetimeIntervalFormat[id] = map[string]string{}
+				for _, n := range calendar.FindAll("dateTimeFormats/intervalFormats/intervalFormatItem[id]/greatestDifference[id]") {
+					id := n.Parent.Attr("id")
+					if _, ok := locale.DatetimeIntervalFormat[id]; !ok {
+						locale.DatetimeIntervalFormat[id] = map[string]string{}
+					}
+					greatestDifference := n.Attr("id")
+					locale.DatetimeIntervalFormat[id][greatestDifference] = n.Text
 				}
-				greatestDifference := n.Attr("id")
-				locale.DatetimeIntervalFormat[id][greatestDifference] = n.Text
-			}
-			if n, ok := xmlLocale.Find("ldml/dates/calendars/calendar[type=gregorian]/dateTimeFormats/appendItems/appendItem[request=Timezone]"); ok {
-				locale.TimezoneFormat = n.Text
+				if n, ok := calendar.Find("dateTimeFormats/appendItems/appendItem[request=Timezone]"); ok {
+					locale.TimezoneFormat = n.Text
+				}
 			}
 			for _, n := range xmlLocale.FindAll("ldml/dates/timeZoneNames/zone[type]/exemplarCity") {
 				locale.TimezoneCity[n.Parent.Attr("type")] = n.Text
