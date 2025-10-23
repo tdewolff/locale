@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -102,16 +103,17 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 				}
 			}
 
-			intervalPattern = pattern
-			intervalPattern = strings.ReplaceAll(intervalPattern, "{1}", datePattern)
-
 			timeIntervalPattern, ok := getIntervalPattern(locale, timePattern, greatestDifference)
 			if ok {
+				intervalPattern = pattern
+				intervalPattern = strings.ReplaceAll(intervalPattern, "{1}", datePattern)
 				intervalPattern = strings.ReplaceAll(intervalPattern, "{0}", timeIntervalPattern)
 			} else {
-				intervalPattern = strings.ReplaceAll(intervalPattern, "{0}", locale.DatetimeIntervalFormat[""][""])
-				intervalPattern = strings.ReplaceAll(intervalPattern, "{0}", timePattern)
-				intervalPattern = strings.ReplaceAll(intervalPattern, "{1}", timePattern)
+				b := []byte(locale.DatetimeIntervalFormat[""][""])
+				b = bytes.ReplaceAll(b, []byte("{0}"), formatTime([]byte{}, fullPattern, locale, f.From))
+				b = bytes.ReplaceAll(b, []byte("{1}"), formatTime([]byte{}, fullPattern, locale, f.To))
+				state.Write(b)
+				return
 			}
 		} else {
 			b := []byte(locale.DatetimeIntervalFormat[""][""])
@@ -124,55 +126,106 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 	state.Write(formatInterval([]byte{}, intervalPattern, locale, f.From, f.To))
 }
 
-func getIntervalPattern(locale Locale, pattern, greatestDifference string) (string, bool) {
-	id := ""
-	substitutions := map[string]string{}
-	symbolLists := [][]string{{"G"}, {"y"}, {"MMMM", "MMM", "M"}, {"E"}, {"d"}, {"B"}, {"h"}, {"H"}, {"m"}, {"s"}, {"v", "z"}}
-	for _, symbolList := range symbolLists {
+type skeletonSymbol struct {
+	Symbol byte
+	N      int
+}
+
+type skeletonSymbols [12]skeletonSymbol
+
+func makeSkeletonSymbols(pattern string) skeletonSymbols {
+	v := skeletonSymbols{}
+	symbolLists := []string{"G", "yYuUr", "Qq", "MLl", "wW", "dDFg", "Eec", "abB", "hHKkjJC", "m", "sSA", "zZOvVXx"}
+LoopElems:
+	for i, symbolList := range symbolLists {
 		for _, symbol := range symbolList {
-			if idx := strings.Index(pattern, symbol); idx != -1 {
-				if symbol == "z" {
-					start, end := idx, idx+1
-					for end < len(pattern) && pattern[end] == 'z' {
-						end++
+			if idx := strings.Index(pattern, string(symbol)); idx != -1 {
+				n := 1
+				for idx+n < len(pattern) && pattern[idx+n] == byte(symbol) {
+					n++
+				}
+				v[i] = skeletonSymbol{
+					Symbol: byte(symbol),
+					N:      n,
+				}
+				continue LoopElems
+			}
+		}
+	}
+	return v
+}
+
+type skeletonSymbolsList []skeletonSymbols
+
+func matchSkeletonSymbols(skeletons []string, pattern string) string {
+	const PenaltySimilarSymbol = 1
+	const PenaltyDifferentLength = 12
+	const PenaltyTextNumeric = 12 * 12
+
+	best, bestScore := -1, math.MaxInt
+	target := makeSkeletonSymbols(pattern)
+LoopList:
+	for i, skeleton := range skeletons {
+		elem := makeSkeletonSymbols(skeleton)
+
+		var score int
+		for j := 0; j < 12; j++ {
+			a, b := elem[j], target[j]
+			if (a.N == 0) != (b.N == 0) {
+				// missing or extra fields
+				continue LoopList
+			} else if a.N != 0 {
+				if a.Symbol != b.Symbol {
+					if a.Symbol == 'E' || b.Symbol == 'E' {
+						score += PenaltyTextNumeric
+					} else {
+						score += PenaltySimilarSymbol
 					}
-					substitutions["v"] = pattern[start:end]
-					symbol = "v"
+				} else if a.N != b.N {
+					if (a.N < 3) != (b.N < 3) && (a.Symbol == 'M' || a.Symbol == 'L' || a.Symbol == 'Q' || a.Symbol == 'q' || a.Symbol == 'e' || a.Symbol == 'c') {
+						score += PenaltyTextNumeric
+					} else {
+						score += PenaltyDifferentLength
+					}
 				}
-				id += symbol
+			}
+		}
+		if score < bestScore {
+			best, bestScore = i, score
+		}
+	}
+	if best == -1 {
+		return ""
+	}
+	return skeletons[best]
+}
+
+func getIntervalPattern(locale Locale, pattern, greatestDifference string) (string, bool) {
+	skeletons := make([]string, 0, len(locale.DatetimeIntervalFormat))
+	for v := range locale.DatetimeIntervalFormat {
+		skeletons = append(skeletons, v)
+	}
+	skeleton := matchSkeletonSymbols(skeletons, pattern)
+	if skeleton == "" {
+		return "", false
+	}
+	intervalPatterns := locale.DatetimeIntervalFormat[skeleton]
+	intervalPattern, ok := intervalPatterns[greatestDifference]
+	if !ok {
+		greatestDifference = "s"
+		for diff := range intervalPatterns {
+			if diff == "y" {
+				greatestDifference = diff
 				break
+			} else if diff == "M" {
+				greatestDifference = diff
+			} else if greatestDifference != "M" && diff < greatestDifference {
+				greatestDifference = diff
 			}
 		}
+		intervalPattern, ok = intervalPatterns[greatestDifference]
 	}
-
-	if intervalPatterns, ok := locale.DatetimeIntervalFormat[id]; ok {
-		if id == "" {
-			intervalPattern, ok := intervalPatterns[""]
-			return intervalPattern, ok
-		}
-
-		intervalPattern, ok := intervalPatterns[greatestDifference]
-		if !ok {
-			greatestDifference = "s"
-			for diff := range intervalPatterns {
-				if diff == "y" {
-					greatestDifference = diff
-					break
-				} else if diff == "M" {
-					greatestDifference = diff
-				} else if greatestDifference != "M" && diff < greatestDifference {
-					greatestDifference = diff
-				}
-			}
-			intervalPattern, ok = intervalPatterns[greatestDifference]
-		}
-
-		for from, to := range substitutions {
-			intervalPattern = strings.ReplaceAll(intervalPattern, from, to)
-		}
-		return intervalPattern, ok
-	}
-	return "", false
+	return intervalPattern, ok
 }
 
 func formatTime(b []byte, pattern string, locale Locale, t time.Time) []byte {

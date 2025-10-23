@@ -3435,7 +3435,7 @@ var locales = map[string]Locale{
         "ZW": "Zimbabue",
         "ZZ": "Región desconocida",
     }},
-    "es_CL": {"#,##0.###", CurrencyFormat{"¤#,##0.00;¤-#,##0.00", "#,##0.00", "¤ #,##0.00;¤-#,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "dd-MM-y", "dd-MM-yy"}, CalendarFormat{"h:mm:ss a zzzz", "h:mm:ss a z", "h:mm:ss a", "h:mm a"}, CalendarFormat{"{1} {0}", "{1} {0}", "{1} {0}", "{1} {0}"}, map[string]map[string]string{
+    "es_CL": {"#,##0.###", CurrencyFormat{"¤#,##0.00;¤-#,##0.00", "#,##0.00", "¤ #,##0.00;¤-#,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "dd-MM-y", "dd-MM-yy"}, CalendarFormat{"H:mm:ss zzzz", "H:mm:ss z", "H:mm:ss", "H:mm"}, CalendarFormat{"{1} {0}", "{1} {0}", "{1} {0}", "{1} {0}"}, map[string]map[string]string{
         "": {
             "": "{0} a el {1}",
         },

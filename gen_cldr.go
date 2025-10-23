@@ -371,6 +371,11 @@ func main() {
 				locale.Territory[n.Attr("type")] = n.Text
 			}
 		}
+
+		// custom changes
+		if localeName == "es_CL" {
+			locale.TimeFormat = CalendarFormat{"H:mm:ss zzzz", "H:mm:ss z", "H:mm:ss", "H:mm"}
+		}
 		locales[localeName] = locale
 	}
 	for localeName, locale := range locales {
