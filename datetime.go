@@ -176,13 +176,10 @@ LoopList:
 				continue LoopList
 			} else if a.N != 0 {
 				if a.Symbol != b.Symbol {
-					if a.Symbol == 'E' || b.Symbol == 'E' {
-						score += PenaltyTextNumeric
-					} else {
-						score += PenaltySimilarSymbol
-					}
-				} else if a.N != b.N {
-					if (a.N < 3) != (b.N < 3) && (a.Symbol == 'M' || a.Symbol == 'L' || a.Symbol == 'Q' || a.Symbol == 'q' || a.Symbol == 'e' || a.Symbol == 'c') {
+					score += PenaltySimilarSymbol
+				}
+				if a.N != b.N {
+					if (a.N < 3) != (b.N < 3) && (a.Symbol == 'M' || a.Symbol == 'L' || a.Symbol == 'Q' || a.Symbol == 'q' || a.Symbol == 'e' || a.Symbol == 'c') || a.Symbol != b.Symbol && (a.Symbol == 'E' || b.Symbol == 'E') {
 						score += PenaltyTextNumeric
 					} else {
 						score += PenaltyDifferentLength
@@ -310,6 +307,20 @@ func is12Hours(locale Locale) bool {
 	return strings.IndexByte(locale.TimeFormat.Full, 'h') != -1
 }
 
+func getDayPeriod(locale Locale, t time.Time) string {
+	d := t.Hour()*60 + t.Minute()
+	for name, rule := range locale.DayPeriodRules {
+		if rule.To == -1 {
+			if rule.From == d {
+				return name
+			}
+		} else if rule.From <= d && d < rule.To {
+			return name
+		}
+	}
+	return ""
+}
+
 func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([]byte, int, bool) {
 	// TODO: handle literal characters (in single quotes)
 	switch pattern[0] {
@@ -317,10 +328,6 @@ func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([
 		n := 1
 		for n < len(pattern) && pattern[n] == pattern[0] {
 			n++
-		}
-		dayPeriod := 0
-		if t.Format("PM") == "PM" {
-			dayPeriod = 1
 		}
 
 		// TODO: does not support all patterns
@@ -358,11 +365,65 @@ func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([
 		case "EEEEE":
 			b = append(b, []byte(locale.DaySymbol[t.Weekday()].Narrow)...)
 		case "a", "aa", "aaa":
-			b = append(b, []byte(locale.DayPeriodSymbol[dayPeriod].Abbreviated)...)
+			if t.Format("PM") == "PM" {
+				b = append(b, []byte(locale.DayPeriodSymbol["pm"].Abbreviated)...)
+			} else {
+				b = append(b, []byte(locale.DayPeriodSymbol["am"].Abbreviated)...)
+			}
 		case "aaaa":
-			b = append(b, []byte(locale.DayPeriodSymbol[dayPeriod].Wide)...)
+			if t.Format("PM") == "PM" {
+				b = append(b, []byte(locale.DayPeriodSymbol["pm"].Wide)...)
+			} else {
+				b = append(b, []byte(locale.DayPeriodSymbol["am"].Wide)...)
+			}
 		case "aaaaa":
-			b = append(b, []byte(locale.DayPeriodSymbol[dayPeriod].Narrow)...)
+			if t.Format("PM") == "PM" {
+				b = append(b, []byte(locale.DayPeriodSymbol["pm"].Narrow)...)
+			} else {
+				b = append(b, []byte(locale.DayPeriodSymbol["am"].Narrow)...)
+			}
+		case "b", "bb", "bbb":
+			period := getDayPeriod(locale, t)
+			if p, ok := locale.DayPeriodSymbol[period]; ok && (period == "midnight" || period == "noon") {
+				b = append(b, []byte(p.Abbreviated)...)
+			} else if t.Format("PM") == "PM" {
+				b = append(b, []byte(locale.DayPeriodSymbol["pm"].Abbreviated)...)
+			} else {
+				b = append(b, []byte(locale.DayPeriodSymbol["am"].Abbreviated)...)
+			}
+		case "bbbb":
+			period := getDayPeriod(locale, t)
+			if p, ok := locale.DayPeriodSymbol[period]; ok && (period == "midnight" || period == "noon") {
+				b = append(b, []byte(p.Wide)...)
+			} else if t.Format("PM") == "PM" {
+				b = append(b, []byte(locale.DayPeriodSymbol["pm"].Wide)...)
+			} else {
+				b = append(b, []byte(locale.DayPeriodSymbol["am"].Wide)...)
+			}
+		case "bbbbb":
+			period := getDayPeriod(locale, t)
+			if p, ok := locale.DayPeriodSymbol[period]; ok && (period == "midnight" || period == "noon") {
+				b = append(b, []byte(p.Narrow)...)
+			} else if t.Format("PM") == "PM" {
+				b = append(b, []byte(locale.DayPeriodSymbol["pm"].Narrow)...)
+			} else {
+				b = append(b, []byte(locale.DayPeriodSymbol["am"].Narrow)...)
+			}
+		case "B", "BB", "BBB":
+			period := getDayPeriod(locale, t)
+			if p, ok := locale.DayPeriodSymbol[period]; ok {
+				b = append(b, []byte(p.Abbreviated)...)
+			}
+		case "BBBB":
+			period := getDayPeriod(locale, t)
+			if p, ok := locale.DayPeriodSymbol[period]; ok {
+				b = append(b, []byte(p.Wide)...)
+			}
+		case "BBBBB":
+			period := getDayPeriod(locale, t)
+			if p, ok := locale.DayPeriodSymbol[period]; ok {
+				b = append(b, []byte(p.Narrow)...)
+			}
 		case "h":
 			b = t.AppendFormat(b, "3")
 		case "hh":

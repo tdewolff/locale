@@ -54,6 +54,10 @@ type CalendarSymbol struct {
 	Narrow      string
 }
 
+type DayPeriodRule struct {
+	From, To int
+}
+
 type Count struct {
 	One   string
 	Other string
@@ -100,7 +104,8 @@ type Locale struct {
 	TimeSeparatorSymbol   rune
 	MonthSymbol           [12]CalendarSymbol
 	DaySymbol             [7]CalendarSymbol
-	DayPeriodSymbol       [2]CalendarSymbol
+	DayPeriodRules        map[string]DayPeriodRule
+	DayPeriodSymbol       map[string]CalendarSymbol
 	TimezoneCity          map[string]string
 	Metazones             map[string]Metazone
 
@@ -127,18 +132,60 @@ var dayMap = map[string]int{
 	"sat": 6,
 }
 
+func parseTime(s string) int {
+	if len(s) != 5 || s[2] != ':' {
+		panic(fmt.Sprintf("bad time: %v", s))
+	} else if h, err := strconv.ParseInt(s[:2], 10, 64); err != nil || h < 0 || 24 < h {
+		panic(fmt.Sprintf("bad time: %v", s))
+	} else if m, err := strconv.ParseInt(s[4:], 10, 64); err != nil || m < 0 || 60 <= m || h == 24 && m != 0 {
+		panic(fmt.Sprintf("bad time: %v", s))
+	} else {
+		return int(h*60 + m)
+	}
+}
+
 func main() {
+	xmlDayPeriods, err := ParseXML("supplemental/dayPeriods.xml")
+	if err != nil {
+		panic(err)
+	}
+	dayPeriodRules := map[string]map[string]DayPeriodRule{}
+	for _, n := range xmlDayPeriods.FindAll("/supplementalData/dayPeriodRuleSet/dayPeriodRules") {
+		locales := strings.Fields(n.Attr("locales"))
+		rules := map[string]DayPeriodRule{}
+		for i := 0; i < len(n.Nodes); i++ {
+			rule := n.Nodes[i]
+			if rule.Tag == "dayPeriodRule" {
+				var from, to int
+				if at := rule.Attr("at"); at != "" {
+					from = parseTime(at)
+					to = -1
+				} else {
+					from = parseTime(rule.Attr("from"))
+					to = parseTime(rule.Attr("before"))
+				}
+				rules[rule.Attr("type")] = DayPeriodRule{from, to}
+			}
+		}
+		for _, locale := range locales {
+			dayPeriodRules[locale] = rules
+		}
+	}
+
 	locales := map[string]Locale{}
 	localeXMLs := map[string]*XMLNode{}
 	for _, localeName := range LocaleNames {
 		tag := language.MustParse(localeName)
+		base, _, _ := tag.Raw()
 		locale := Locale{
+			DatetimeIntervalFormat: map[string]map[string]string{},
+			DayPeriodRules:         map[string]DayPeriodRule{},
+			DayPeriodSymbol:        map[string]CalendarSymbol{},
+			TimezoneCity:           map[string]string{},
+			Metazones:              map[string]Metazone{},
 			Currency:               map[string]Currency{},
 			Unit:                   map[string]Unit{},
 			Territory:              map[string]string{},
-			TimezoneCity:           map[string]string{},
-			Metazones:              map[string]Metazone{},
-			DatetimeIntervalFormat: map[string]map[string]string{},
 		}
 
 		var parentXML *XMLNode
@@ -165,10 +212,10 @@ func main() {
 			}
 			localeXMLs[localeName] = xmlLocale
 
-			if n, ok := xmlLocale.Find("ldml/numbers/decimalFormats[numberSystem=latn]/decimalFormatLength[!type]/decimalFormat/pattern"); ok {
+			if n, ok := xmlLocale.Find("/ldml/numbers/decimalFormats[numberSystem=latn]/decimalFormatLength[!type]/decimalFormat/pattern"); ok {
 				locale.DecimalFormat = n.Text
 			}
-			for _, n := range xmlLocale.FindAll("ldml/numbers/currencyFormats[numberSystem=latn]/currencyFormatLength[!type]/currencyFormat[type=standard]/pattern") {
+			for _, n := range xmlLocale.FindAll("/ldml/numbers/currencyFormats[numberSystem=latn]/currencyFormatLength[!type]/currencyFormat[type=standard]/pattern") {
 				if alt := n.Attr("alt"); alt == "" {
 					locale.CurrencyFormat.Standard = n.Text
 				} else if alt == "noCurrency" {
@@ -177,7 +224,7 @@ func main() {
 					locale.CurrencyFormat.ISO = n.Text
 				}
 			}
-			for _, n := range xmlLocale.FindAll("ldml/numbers/symbols[numberSystem=latn]/*") {
+			for _, n := range xmlLocale.FindAll("/ldml/numbers/symbols[numberSystem=latn]/*") {
 				if r, _ := utf8.DecodeRuneInString(n.Text); r != utf8.RuneError {
 					switch n.Tag {
 					case "decimal":
@@ -197,7 +244,7 @@ func main() {
 					}
 				}
 			}
-			for _, n := range xmlLocale.FindAll("ldml/numbers/currencies/currency[type]/*") {
+			for _, n := range xmlLocale.FindAll("/ldml/numbers/currencies/currency[type]/*") {
 				cur := n.Parent.Attr("type")
 				currency := locale.Currency[cur]
 				if n.Tag == "displayName" {
@@ -213,8 +260,8 @@ func main() {
 				}
 				locale.Currency[cur] = currency
 			}
-			if calendar, ok := xmlLocale.Find("ldml/dates/calendars/calendar[type=gregorian]"); ok {
-				if generic, ok := xmlLocale.Find("ldml/dates/calendars/calendar[type=generic]"); ok {
+			if calendar, ok := xmlLocale.Find("/ldml/dates/calendars/calendar[type=gregorian]"); ok {
+				if generic, ok := xmlLocale.Find("/ldml/dates/calendars/calendar[type=generic]"); ok {
 					calendar.InheritFrom(generic)
 				}
 				for _, n := range calendar.FindAll("months/monthContext[type]/monthWidth[type]/month[type]") {
@@ -243,22 +290,22 @@ func main() {
 						}
 					}
 				}
+				if rules, ok := dayPeriodRules[base.String()]; ok {
+					locale.DayPeriodRules = rules
+				}
 				for _, n := range calendar.FindAll("dayPeriods/dayPeriodContext[type]/dayPeriodWidth[type]/dayPeriod[type]") {
-					if period := n.Attr("type"); period == "am" || period == "pm" {
-						i := 0
-						if period == "pm" {
-							i = 1
-						}
-						width := n.Parent.Attr("type")
-						context := n.Parent.Parent.Attr("type")
-						if context == "format" && width == "wide" {
-							locale.DayPeriodSymbol[i].Wide = n.Text
-						} else if context == "format" && width == "abbreviated" {
-							locale.DayPeriodSymbol[i].Abbreviated = n.Text
-						} else if context == "stand-alone" && width == "narrow" {
-							locale.DayPeriodSymbol[i].Narrow = n.Text
-						}
+					period := n.Attr("type")
+					width := n.Parent.Attr("type")
+					context := n.Parent.Parent.Attr("type")
+					symbol := locale.DayPeriodSymbol[period]
+					if context == "format" && width == "wide" {
+						symbol.Wide = n.Text
+					} else if context == "format" && width == "abbreviated" {
+						symbol.Abbreviated = n.Text
+					} else if context == "stand-alone" && width == "narrow" {
+						symbol.Narrow = n.Text
 					}
+					locale.DayPeriodSymbol[period] = symbol
 				}
 				for _, n := range calendar.FindAll("dateFormats/dateFormatLength[type]/dateFormat/pattern") {
 					if length := n.Parent.Parent.Attr("type"); length == "full" {
@@ -314,10 +361,10 @@ func main() {
 					locale.TimezoneFormat = n.Text
 				}
 			}
-			for _, n := range xmlLocale.FindAll("ldml/dates/timeZoneNames/zone[type]/exemplarCity") {
+			for _, n := range xmlLocale.FindAll("/ldml/dates/timeZoneNames/zone[type]/exemplarCity") {
 				locale.TimezoneCity[n.Parent.Attr("type")] = n.Text
 			}
-			for _, n := range xmlLocale.FindAll("ldml/dates/timeZoneNames/metazone[type]/*/*") {
+			for _, n := range xmlLocale.FindAll("/ldml/dates/timeZoneNames/metazone[type]/*/*") {
 				typ := n.Parent.Parent.Attr("type")
 				metazone := locale.Metazones[typ]
 				switch n.Parent.Tag {
@@ -342,7 +389,7 @@ func main() {
 				}
 				locale.Metazones[typ] = metazone
 			}
-			for _, n := range xmlLocale.FindAll("ldml/units/unitLength[type]/unit[type]/unitPattern[count]") {
+			for _, n := range xmlLocale.FindAll("/ldml/units/unitLength[type]/unit[type]/unitPattern[count]") {
 				if unitName := n.Parent.Attr("type"); strings.HasPrefix(unitName, "duration-") {
 					var count *Count
 					unit := locale.Unit[unitName]
@@ -367,7 +414,7 @@ func main() {
 					locale.Unit[unitName] = unit
 				}
 			}
-			for _, n := range xmlLocale.FindAll("ldml/localeDisplayNames/territories/territory[type]") {
+			for _, n := range xmlLocale.FindAll("/ldml/localeDisplayNames/territories/territory[type]") {
 				locale.Territory[n.Attr("type")] = n.Text
 			}
 		}
@@ -398,7 +445,7 @@ func main() {
 	if xmlSupplementalData, err := ParseXML("supplemental/supplementalData.xml"); err != nil {
 		panic(err)
 	} else {
-		for _, n := range xmlSupplementalData.FindAll("supplementalData/currencyData/fractions/info") {
+		for _, n := range xmlSupplementalData.FindAll("/supplementalData/currencyData/fractions/info") {
 			currencyInfo := CurrencyInfo{
 				Digits:       -1,
 				Rounding:     -1,
@@ -443,7 +490,7 @@ func main() {
 	if xmlMetaZones, err := ParseXML("supplemental/metaZones.xml"); err != nil {
 		panic(err)
 	} else {
-		for _, n := range xmlMetaZones.FindAll("supplementalData/metaZones/metazoneInfo/timezone[type]/usesMetazone[mzone][!to]") {
+		for _, n := range xmlMetaZones.FindAll("/supplementalData/metaZones/metazoneInfo/timezone[type]/usesMetazone[mzone][!to]") {
 			timezone := n.Parent.Attr("type")
 			metazone := n.Attr("mzone")
 			metazones[timezone] = metazone
@@ -462,7 +509,7 @@ func main() {
 	w.Write([]byte("// Automatically generated by gen_cldr.go\n"))
 	w.Write([]byte("package locale\n"))
 
-	types := []interface{}{CurrencyFormat{}, CalendarFormat{}, CalendarSymbol{}, Count{}, Currency{}, Unit{}, Locale{}, CurrencyInfo{}, MetazoneSymbol{}, Metazone{}}
+	types := []interface{}{CurrencyFormat{}, CalendarFormat{}, CalendarSymbol{}, DayPeriodRule{}, Count{}, Currency{}, Unit{}, Locale{}, CurrencyInfo{}, MetazoneSymbol{}, Metazone{}}
 	for _, v := range types {
 		t := reflect.TypeOf(v)
 		fmt.Fprintf(w, "\ntype %v ", t.Name())
@@ -643,6 +690,62 @@ func (c XMLCond) Match(n *XMLNode) bool {
 	return true
 }
 
+type XMLMatcher struct {
+	Tag        string
+	Conditions []XMLCond
+}
+
+func ParseXMLMatcher(elem string) XMLMatcher {
+	conditions := []XMLCond{}
+	for {
+		if bracket := strings.LastIndexByte(elem, '['); bracket != -1 {
+			cond := elem[bracket+1 : len(elem)-1]
+			if notIs := strings.Index(cond, "!="); notIs != -1 {
+				conditions = append(conditions, XMLCond{
+					Type:  XMLCondNotValue,
+					Attr:  cond[:notIs],
+					Value: cond[notIs+2:],
+				})
+			} else if is := strings.IndexByte(cond, '='); is != -1 {
+				conditions = append(conditions, XMLCond{
+					Type:  XMLCondValue,
+					Attr:  cond[:is],
+					Value: cond[is+1:],
+				})
+			} else if strings.HasPrefix(cond, "!") {
+				conditions = append(conditions, XMLCond{
+					Type: XMLCondNotExists,
+					Attr: cond[1:],
+				})
+			} else {
+				conditions = append(conditions, XMLCond{
+					Type: XMLCondExists,
+					Attr: cond,
+				})
+			}
+			elem = elem[:bracket]
+		} else {
+			break
+		}
+	}
+	return XMLMatcher{
+		Tag:        elem,
+		Conditions: conditions,
+	}
+}
+
+func (m XMLMatcher) Matches(n *XMLNode) bool {
+	if n == nil || m.Tag != "*" && n.Tag != m.Tag {
+		return false
+	}
+	for _, cond := range m.Conditions {
+		if !cond.Match(n) {
+			return false
+		}
+	}
+	return true
+}
+
 func (n *XMLNode) Path() string {
 	query := ""
 	for cur := n; cur != nil; cur = cur.Parent {
@@ -656,6 +759,25 @@ func (n *XMLNode) Path() string {
 		query = query[:len(query)-1]
 	}
 	return query
+}
+
+func (n *XMLNode) Matches(xpath string) bool {
+	elems := strings.Split(xpath, "/")
+	if 0 < len(elems) && elems[0] == "" {
+		elems = elems[1:]
+	}
+	if 0 < len(elems) && elems[len(elems)-1] == "" {
+		elems = elems[:len(elems)-1]
+	}
+
+	for i := len(elems) - 1; 0 <= i; i-- {
+		matcher := ParseXMLMatcher(elems[i])
+		if !matcher.Matches(n) {
+			return false
+		}
+		n = n.Parent
+	}
+	return true
 }
 
 func (n *XMLNode) Find(xpath string) (*XMLNode, bool) {
@@ -687,51 +809,12 @@ func (n *XMLNode) FindAll(xpath string) []*XMLNode {
 			}
 		}
 
-		conditions := []XMLCond{}
-		for {
-			if bracket := strings.LastIndexByte(elem, '['); bracket != -1 {
-				cond := elem[bracket+1 : len(elem)-1]
-				if notIs := strings.Index(cond, "!="); notIs != -1 {
-					conditions = append(conditions, XMLCond{
-						Type:  XMLCondNotValue,
-						Attr:  cond[:notIs],
-						Value: cond[notIs+2:],
-					})
-				} else if is := strings.IndexByte(cond, '='); is != -1 {
-					conditions = append(conditions, XMLCond{
-						Type:  XMLCondValue,
-						Attr:  cond[:is],
-						Value: cond[is+1:],
-					})
-				} else if strings.HasPrefix(cond, "!") {
-					conditions = append(conditions, XMLCond{
-						Type: XMLCondNotExists,
-						Attr: cond[1:],
-					})
-				} else {
-					conditions = append(conditions, XMLCond{
-						Type: XMLCondExists,
-						Attr: cond,
-					})
-				}
-				elem = elem[:bracket]
-			} else {
-				break
-			}
-		}
-
 		matches = matches[:0]
-	NodesLoop:
+		matcher := ParseXMLMatcher(elem)
 		for _, n := range nodes {
-			if elem != "*" && n.Tag != elem {
-				continue
+			if matcher.Matches(n) {
+				matches = append(matches, n)
 			}
-			for _, cond := range conditions {
-				if !cond.Match(n) {
-					continue NodesLoop
-				}
-			}
-			matches = append(matches, n)
 		}
 		if len(matches) == 0 {
 			return []*XMLNode{}

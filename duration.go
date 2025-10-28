@@ -11,6 +11,38 @@ import (
 	parseStrconv "github.com/tdewolff/parse/v2/strconv"
 )
 
+type TimeUnitSymbol int
+
+const (
+	Nanosecond  TimeUnitSymbol = 0
+	Microsecond TimeUnitSymbol = 1
+	Millisecond TimeUnitSymbol = 2
+	Second      TimeUnitSymbol = 3
+	Minute      TimeUnitSymbol = 4
+	Hour        TimeUnitSymbol = 5
+	Day         TimeUnitSymbol = 6
+	Week        TimeUnitSymbol = 7
+	Month       TimeUnitSymbol = 8
+	Year        TimeUnitSymbol = 9
+	Decade      TimeUnitSymbol = 10
+	Century     TimeUnitSymbol = 11
+)
+
+var TimeUnitSymbols = map[string]TimeUnitSymbol{
+	"nanosecond":  Nanosecond,
+	"microsecond": Microsecond,
+	"millisecond": Millisecond,
+	"second":      Second,
+	"minute":      Minute,
+	"hour":        Hour,
+	"day":         Day,
+	"week":        Week,
+	"month":       Month,
+	"year":        Year,
+	"decade":      Decade,
+	"century":     Century,
+}
+
 type Duration time.Duration
 
 // String formats duration in seconds.
@@ -192,13 +224,30 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 	if approximate {
 		f.Layout = strings.TrimPrefix(f.Layout, "≈")
 	}
+	minUnit, maxUnit := Nanosecond, Century
+	if bracket := strings.IndexByte(f.Layout, '['); bracket != -1 && strings.HasSuffix(f.Layout, "]") {
+		fields := strings.Split(f.Layout[bracket+1:len(f.Layout)-1], ",")
+		if unit, ok := TimeUnitSymbols[fields[0]]; ok {
+			minUnit = unit
+		}
+		if unit, ok := TimeUnitSymbols[fields[1]]; ok {
+			maxUnit = unit
+		}
+		f.Layout = f.Layout[:bracket]
+	}
 
+	written := false
 	num := int64(f.Duration)
 	unitType := []string{"week", "day", "hour", "minute", "second", "millisecond", "microsecond", "nanosecond"}
+	unitSymbol := []TimeUnitSymbol{Hour, Minute, Second, Millisecond, Microsecond, Nanosecond}
 	unitSize := []int64{7 * 24 * 3600 * 1e9, 24 * 3600 * 1e9, 3600 * 1e9, 60 * 1e9, 1e9, 1e6, 1e3, 1}
-	for i := 0; num != 0 && i < len(unitType); i++ {
-		if _, ok := locale.Unit["duration-"+unitType[i]]; ok {
-			if n := num / unitSize[i]; n != 0 {
+	for i := 0; num != 0 && i < len(unitSymbol) && minUnit <= unitSymbol[i]; i++ {
+		if _, ok := locale.Unit["duration-"+unitType[i]]; ok && unitSymbol[i] <= maxUnit {
+			n := num / unitSize[i]
+			if (approximate || minUnit == unitSymbol[i]) && unitSize[i]/2 <= num%unitSize[i] {
+				n++
+			}
+			if n != 0 || minUnit == unitSymbol[i] && !written {
 				var count Count
 				switch f.Layout {
 				case DurationLong:
@@ -213,11 +262,11 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 				}
 
 				pattern := count.Other
-				if n == 1 {
+				if n == 1 && count.One != "" {
 					pattern = count.One
 				}
 				pattern = strings.ReplaceAll(pattern, "{0}", fmt.Sprintf("%d", n))
-				if 1 < len(b) {
+				if written {
 					b = append(b, ' ')
 				}
 				b = append(b, []byte(pattern)...)
@@ -225,6 +274,7 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 					break
 				}
 				num %= unitSize[i]
+				written = true
 			}
 		}
 	}
@@ -235,38 +285,6 @@ type DurationIntervalFormatter struct {
 	Time time.Time
 	time.Duration
 	Layout string
-}
-
-type IntervalSymbol int
-
-const (
-	Nanosecond  IntervalSymbol = 0
-	Microsecond IntervalSymbol = 1
-	Millisecond IntervalSymbol = 2
-	Second      IntervalSymbol = 3
-	Minute      IntervalSymbol = 4
-	Hour        IntervalSymbol = 5
-	Day         IntervalSymbol = 6
-	Week        IntervalSymbol = 7
-	Month       IntervalSymbol = 8
-	Year        IntervalSymbol = 9
-	Decade      IntervalSymbol = 10
-	Century     IntervalSymbol = 11
-)
-
-var IntervalSymbols = map[string]IntervalSymbol{
-	"nanosecond":  Nanosecond,
-	"microsecond": Microsecond,
-	"millisecond": Millisecond,
-	"second":      Second,
-	"minute":      Minute,
-	"hour":        Hour,
-	"day":         Day,
-	"week":        Week,
-	"month":       Month,
-	"year":        Year,
-	"decade":      Decade,
-	"century":     Century,
 }
 
 func (f DurationIntervalFormatter) Format(state fmt.State, verb rune) {
@@ -288,10 +306,10 @@ func (f DurationIntervalFormatter) Format(state fmt.State, verb rune) {
 	minUnit, maxUnit := Nanosecond, Century
 	if bracket := strings.IndexByte(f.Layout, '['); bracket != -1 && strings.HasSuffix(f.Layout, "]") {
 		fields := strings.Split(f.Layout[bracket+1:len(f.Layout)-1], ",")
-		if unit, ok := IntervalSymbols[fields[0]]; ok {
+		if unit, ok := TimeUnitSymbols[fields[0]]; ok {
 			minUnit = unit
 		}
-		if unit, ok := IntervalSymbols[fields[1]]; ok {
+		if unit, ok := TimeUnitSymbols[fields[1]]; ok {
 			maxUnit = unit
 		}
 		f.Layout = f.Layout[:bracket]
@@ -412,7 +430,7 @@ func (f DurationIntervalFormatter) Format(state fmt.State, verb rune) {
 
 	num := int64(end.Sub(start))
 	unitSize := []int64{3600 * 1e9, 60 * 1e9, 1e9, 1e6, 1e3, 1}
-	unitSymbol := []IntervalSymbol{Hour, Minute, Second, Millisecond, Microsecond, Nanosecond}
+	unitSymbol := []TimeUnitSymbol{Hour, Minute, Second, Millisecond, Microsecond, Nanosecond}
 	unitType := []string{"hour", "minute", "second", "millisecond", "microsecond", "nanosecond"}
 	for i := 0; num != 0 && i < len(unitSymbol) && minUnit <= unitSymbol[i]; i++ {
 		if _, ok := locale.Unit["duration-"+unitType[i]]; ok && unitSymbol[i] <= maxUnit {

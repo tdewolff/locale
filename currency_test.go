@@ -29,7 +29,8 @@ func TestNewAmountFromFloat64(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.r, func(t *testing.T) {
-			amount := NewAmountFromFloat64(tt.cur, tt.f)
+			amount, err := NewAmountFromFloat64(tt.cur, tt.f)
+			test.Error(t, err)
 			test.T(t, amount.Unit.String()+" "+amount.StringAmount(), tt.r)
 		})
 	}
@@ -64,9 +65,9 @@ func TestAmountOperation(t *testing.T) {
 		a Amount
 		r Amount
 	}{
-		{NewAmount(EUR, 105, 3).Round(), NewAmount(EUR, 100, 3)},
-		{NewAmount(EUR, 115, 3).Round(), NewAmount(EUR, 120, 3)},
-		{NewAmount(EUR, 1000, 3).Mul(2).Div(3), NewAmount(EUR, 66667, 5)},
+		{MustNewAmount(EUR, 105, 3).Round(), MustNewAmount(EUR, 100, 3)},
+		{MustNewAmount(EUR, 115, 3).Round(), MustNewAmount(EUR, 120, 3)},
+		{MustNewAmount(EUR, 1000, 3).MustMul(2).Div(3), MustNewAmount(EUR, 66667, 5)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.a.String(), func(t *testing.T) {

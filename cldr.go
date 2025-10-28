@@ -20,6 +20,11 @@ type CalendarSymbol struct {
     Narrow      string
 }
 
+type DayPeriodRule struct {
+    From int
+    To   int
+}
+
 type Count struct {
     One   string
     Other string
@@ -54,7 +59,8 @@ type Locale struct {
     TimeSeparatorSymbol    int32
     MonthSymbol            [12]CalendarSymbol
     DaySymbol              [7]CalendarSymbol
-    DayPeriodSymbol        [2]CalendarSymbol
+    DayPeriodRules         map[string]DayPeriodRule
+    DayPeriodSymbol        map[string]CalendarSymbol
     TimezoneCity           map[string]string
     Metazones              map[string]Metazone
     Currency               map[string]Currency
@@ -245,9 +251,20 @@ var locales = map[string]Locale{
         {"Thursday", "Thu", "T"},
         {"Friday", "Fri", "F"},
         {"Saturday", "Sat", "S"},
-    }, [2]CalendarSymbol{
-        {"AM", "AM", "AM"},
-        {"PM", "PM", "PM"},
+    }, map[string]DayPeriodRule{
+        "afternoon1": {720, 1080},
+        "evening1": {1080, 1260},
+        "morning1": {0, 720},
+        "night1": {1260, 1440},
+    }, map[string]CalendarSymbol{
+        "afternoon1": {"in the afternoon", "in the afternoon", "afternoon"},
+        "am": {"AM", "AM", "AM"},
+        "evening1": {"in the evening", "in the evening", "evening"},
+        "midnight": {"midnight", "midnight", "midnight"},
+        "morning1": {"in the morning", "in the morning", "morning"},
+        "night1": {"at night", "at night", "night"},
+        "noon": {"noon", "noon", "noon"},
+        "pm": {"PM", "PM", "PM"},
     }, map[string]string{
         "Africa/Asmera": "Asmara",
         "Africa/El_Aaiun": "El Aaiún",
@@ -1314,9 +1331,19 @@ var locales = map[string]Locale{
         {"jueves", "jue", "J"},
         {"viernes", "vie", "V"},
         {"sábado", "sáb", "S"},
-    }, [2]CalendarSymbol{
-        {"a. m.", "a. m.", "AM"},
-        {"p. m.", "p. m.", "PM"},
+    }, map[string]DayPeriodRule{
+        "evening1": {720, 1200},
+        "morning1": {0, 360},
+        "morning2": {360, 720},
+        "night1": {1200, 1440},
+    }, map[string]CalendarSymbol{
+        "am": {"a. m.", "a. m.", "AM"},
+        "evening1": {"", "de la tarde", ""},
+        "morning1": {"", "de la madrugada", ""},
+        "morning2": {"", "de la mañana", ""},
+        "night1": {"", "de la noche", ""},
+        "noon": {"", "del mediodía", ""},
+        "pm": {"p. m.", "p. m.", "PM"},
     }, map[string]string{
         "Africa/Abidjan": "Abiyán",
         "Africa/Accra": "Acra",
@@ -2464,9 +2491,19 @@ var locales = map[string]Locale{
         {"jueves", "jue", "J"},
         {"viernes", "vie", "V"},
         {"sábado", "sáb", "S"},
-    }, [2]CalendarSymbol{
-        {"a.m.", "a.m.", "AM"},
-        {"p.m.", "p.m.", "PM"},
+    }, map[string]DayPeriodRule{
+        "evening1": {720, 1200},
+        "morning1": {0, 360},
+        "morning2": {360, 720},
+        "night1": {1200, 1440},
+    }, map[string]CalendarSymbol{
+        "am": {"a.m.", "a.m.", "AM"},
+        "evening1": {"", "de la tarde", ""},
+        "morning1": {"", "de la madrugada", ""},
+        "morning2": {"", "de la mañana", ""},
+        "night1": {"", "de la noche", ""},
+        "noon": {"", "del mediodía", ""},
+        "pm": {"p.m.", "p.m.", "PM"},
     }, map[string]string{
         "Africa/Abidjan": "Abiyán",
         "Africa/Accra": "Acra",
@@ -3617,9 +3654,19 @@ var locales = map[string]Locale{
         {"jueves", "jue", "J"},
         {"viernes", "vie", "V"},
         {"sábado", "sáb", "S"},
-    }, [2]CalendarSymbol{
-        {"a. m.", "a. m.", "a. m."},
-        {"p. m.", "p. m.", "p. m."},
+    }, map[string]DayPeriodRule{
+        "evening1": {720, 1200},
+        "morning1": {0, 360},
+        "morning2": {360, 720},
+        "night1": {1200, 1440},
+    }, map[string]CalendarSymbol{
+        "am": {"a. m.", "a. m.", "a. m."},
+        "evening1": {"", "de la tarde", ""},
+        "morning1": {"", "de la madrugada", ""},
+        "morning2": {"", "de la mañana", ""},
+        "night1": {"", "de la noche", ""},
+        "noon": {"", "del mediodía", ""},
+        "pm": {"p. m.", "p. m.", "p. m."},
     }, map[string]string{
         "Africa/Abidjan": "Abiyán",
         "Africa/Accra": "Acra",
@@ -4755,9 +4802,19 @@ var locales = map[string]Locale{
         {"donderdag", "do", "D"},
         {"vrijdag", "vr", "V"},
         {"zaterdag", "za", "Z"},
-    }, [2]CalendarSymbol{
-        {"AM", "a.m.", "AM"},
-        {"PM", "p.m.", "PM"},
+    }, map[string]DayPeriodRule{
+        "afternoon1": {720, 1080},
+        "evening1": {1080, 1440},
+        "morning1": {360, 720},
+        "night1": {0, 360},
+    }, map[string]CalendarSymbol{
+        "afternoon1": {"", "’s middags", ""},
+        "am": {"AM", "a.m.", "AM"},
+        "evening1": {"", "’s avonds", ""},
+        "midnight": {"", "middernacht", ""},
+        "morning1": {"", "’s ochtends", ""},
+        "night1": {"", "’s nachts", ""},
+        "pm": {"PM", "p.m.", "PM"},
     }, map[string]string{
         "Africa/Addis_Ababa": "Addis Abeba",
         "Africa/Asmera": "Asmara",
@@ -5844,9 +5901,19 @@ var locales = map[string]Locale{
         {"donderdag", "do", "D"},
         {"vrijdag", "vr", "V"},
         {"zaterdag", "za", "Z"},
-    }, [2]CalendarSymbol{
-        {"AM", "a.m.", "AM"},
-        {"PM", "p.m.", "PM"},
+    }, map[string]DayPeriodRule{
+        "afternoon1": {720, 1080},
+        "evening1": {1080, 1440},
+        "morning1": {360, 720},
+        "night1": {0, 360},
+    }, map[string]CalendarSymbol{
+        "afternoon1": {"", "’s middags", ""},
+        "am": {"AM", "a.m.", "AM"},
+        "evening1": {"", "’s avonds", ""},
+        "midnight": {"", "middernacht", ""},
+        "morning1": {"", "’s ochtends", ""},
+        "night1": {"", "’s nachts", ""},
+        "pm": {"PM", "p.m.", "PM"},
     }, map[string]string{
         "Africa/Addis_Ababa": "Addis Abeba",
         "Africa/Asmera": "Asmara",
@@ -6930,9 +6997,9 @@ var locales = map[string]Locale{
         {"Thu", "Thu", "T"},
         {"Fri", "Fri", "F"},
         {"Sat", "Sat", "S"},
-    }, [2]CalendarSymbol{
-        {"AM", "AM", "AM"},
-        {"PM", "PM", "PM"},
+    }, map[string]DayPeriodRule{}, map[string]CalendarSymbol{
+        "am": {"AM", "AM", "AM"},
+        "pm": {"PM", "PM", "PM"},
     }, map[string]string{
         "Africa/Asmera": "Asmara",
         "Africa/El_Aaiun": "El Aaiún",
