@@ -329,7 +329,8 @@ func main() {
 						locale.TimeFormat.Short = n.Text
 					}
 				}
-				for _, n := range calendar.FindAll("dateTimeFormats/dateTimeFormatLength[type]/dateTimeFormat/pattern") {
+				for _, n := range calendar.FindAll("dateTimeFormats/dateTimeFormatLength[type]/dateTimeFormat[!type]/pattern") {
+					fmt.Println(localeName, n, n.Path())
 					if length := n.Parent.Parent.Attr("type"); length == "full" {
 						locale.DatetimeFormat.Full = n.Text
 					} else if length == "long" {

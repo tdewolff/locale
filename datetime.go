@@ -109,9 +109,11 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 				intervalPattern = strings.ReplaceAll(intervalPattern, "{1}", datePattern)
 				intervalPattern = strings.ReplaceAll(intervalPattern, "{0}", timeIntervalPattern)
 			} else {
-				b := []byte(locale.DatetimeIntervalFormat[""][""])
-				b = bytes.ReplaceAll(b, []byte("{0}"), formatTime([]byte{}, fullPattern, locale, f.From))
-				b = bytes.ReplaceAll(b, []byte("{1}"), formatTime([]byte{}, fullPattern, locale, f.To))
+				b := []byte(locale.DatetimeFormat.Full)
+				b = bytes.ReplaceAll(b, []byte("{1}"), formatTime([]byte{}, datePattern, locale, f.From))
+				b = bytes.ReplaceAll(b, []byte("{0}"), []byte(locale.DatetimeIntervalFormat[""][""]))
+				b = bytes.ReplaceAll(b, []byte("{0}"), formatTime([]byte{}, timePattern, locale, f.From))
+				b = bytes.ReplaceAll(b, []byte("{1}"), formatTime([]byte{}, timePattern, locale, f.To))
 				state.Write(b)
 				return
 			}
@@ -155,21 +157,47 @@ LoopElems:
 	return v
 }
 
+func fromSkeletonSymbols(v skeletonSymbols) string {
+	sb := &strings.Builder{}
+	for j := 0; j < 12; j++ {
+		for i := 0; i < v[j].N; i++ {
+			sb.WriteByte(v[j].Symbol)
+		}
+	}
+	return sb.String()
+}
+
 type skeletonSymbolsList []skeletonSymbols
 
-func matchSkeletonSymbols(skeletons []string, pattern string) string {
+func matchSkeletonSymbols[T any](formats map[string]T, pattern string) (T, map[byte]string) {
 	const PenaltySimilarSymbol = 1
 	const PenaltyDifferentLength = 12
 	const PenaltyTextNumeric = 12 * 12
 
+	skeletons := make([]string, 0, len(formats))
+	for v := range formats {
+		if v != "" {
+			skeletons = append(skeletons, v)
+		}
+	}
+
+	bestSubs := map[byte]string{}
 	best, bestScore := -1, math.MaxInt
 	target := makeSkeletonSymbols(pattern)
 LoopList:
 	for i, skeleton := range skeletons {
-		elem := makeSkeletonSymbols(skeleton)
-
 		var score int
+		subs := map[byte]string{}
+		elem := makeSkeletonSymbols(skeleton)
 		for j := 0; j < 12; j++ {
+			if j == 7 { // abBC
+				subs[elem[j].Symbol] = strings.Repeat(string(target[j].Symbol), target[j].N)
+				elem[j].Symbol = target[j].Symbol
+			} else if j == 11 { // zZOvVXx
+				subs[elem[j].Symbol] = strings.Repeat(string(target[j].Symbol), target[j].N)
+				elem[j].Symbol = target[j].Symbol
+			}
+
 			a, b := elem[j], target[j]
 			if (a.N == 0) != (b.N == 0) {
 				// missing or extra fields
@@ -188,25 +216,20 @@ LoopList:
 			}
 		}
 		if score < bestScore {
-			best, bestScore = i, score
+			best, bestScore, bestSubs = i, score, subs
 		}
 	}
 	if best == -1 {
-		return ""
+		return formats[""], nil
 	}
-	return skeletons[best]
+	return formats[skeletons[best]], bestSubs
 }
 
 func getIntervalPattern(locale Locale, pattern, greatestDifference string) (string, bool) {
-	skeletons := make([]string, 0, len(locale.DatetimeIntervalFormat))
-	for v := range locale.DatetimeIntervalFormat {
-		skeletons = append(skeletons, v)
-	}
-	skeleton := matchSkeletonSymbols(skeletons, pattern)
-	if skeleton == "" {
+	intervalPatterns, subs := matchSkeletonSymbols(locale.DatetimeIntervalFormat, pattern)
+	if subs == nil {
 		return "", false
 	}
-	intervalPatterns := locale.DatetimeIntervalFormat[skeleton]
 	intervalPattern, ok := intervalPatterns[greatestDifference]
 	if !ok {
 		greatestDifference = "s"
@@ -221,6 +244,9 @@ func getIntervalPattern(locale Locale, pattern, greatestDifference string) (stri
 			}
 		}
 		intervalPattern, ok = intervalPatterns[greatestDifference]
+	}
+	for a, b := range subs {
+		intervalPattern = strings.ReplaceAll(intervalPattern, string(a), b)
 	}
 	return intervalPattern, ok
 }
@@ -257,7 +283,8 @@ func formatTime(b []byte, pattern string, locale Locale, t time.Time) []byte {
 }
 
 func formatInterval(b []byte, pattern string, locale Locale, from, to time.Time) []byte {
-	handled := map[byte]bool{}
+	t := from
+	handled := map[rune]bool{}
 	for i := 0; i < len(pattern); {
 		r, n := utf8.DecodeRuneInString(pattern[i:])
 		switch r {
@@ -272,23 +299,26 @@ func formatInterval(b []byte, pattern string, locale Locale, from, to time.Time)
 			b = append(b, pattern[i+1:j]...)
 			i = j + 1
 		default:
-			// TODO: doesnt handle repeating mixed format and standalone fields
-			t := from
-			if handled[pattern[i]] {
-				t = to
-			}
-			handled[pattern[i]] = true
-
-			var m int
-			var ok bool
-			if b, m, ok = formatDatetimeItem(b, pattern[i:], locale, t); !ok {
-				log.Printf("INFO: locale: unsupported date/time format: %v\n", pattern[i:i+m])
-				i += m
-			} else if m != 0 {
-				i += m
-			} else {
+			if !strings.ContainsRune("GyYuUrQqMLwWdDFgEecabBhHKkjJCmsSAzZOvVXx", r) {
 				b = utf8.AppendRune(b, r)
 				i += n
+			} else {
+				if handled[r] {
+					t = to // first repeating field switches to 'to' time
+				}
+				handled[r] = true
+
+				var m int
+				var ok bool
+				if b, m, ok = formatDatetimeItem(b, pattern[i:], locale, t); !ok {
+					log.Printf("INFO: locale: unsupported date/time format: %v\n", pattern[i:i+m])
+					i += m
+				} else if m != 0 {
+					i += m
+				} else {
+					b = utf8.AppendRune(b, r)
+					i += n
+				}
 			}
 		}
 	}
@@ -322,15 +352,21 @@ func getDayPeriod(locale Locale, t time.Time) string {
 }
 
 func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([]byte, int, bool) {
-	// TODO: handle literal characters (in single quotes)
 	switch pattern[0] {
-	case 'G', 'y', 'M', 'L', 'E', 'c', 'd', 'h', 'H', 'K', 'k', 'm', 's', 'a', 'b', 'B', 'z', 'Z', 'v', 'V', 'O', 'x', 'X', 'Q':
+	case '\'':
+		n := 1
+		for n < len(pattern) && pattern[n] != '\'' {
+			n++
+		}
+		n++
+		return []byte(pattern[1 : n-1]), n, true
+	case 'G', 'y', 'Y', 'u', 'U', 'r', 'Q', 'q', 'M', 'L', 'w', 'W', 'E', 'e', 'c', 'd', 'D', 'F', 'g', 'a', 'b', 'B', 'h', 'H', 'K', 'k', 'm', 's', 'S', 'A', 'z', 'Z', 'O', 'v', 'V', 'X', 'x':
 		n := 1
 		for n < len(pattern) && pattern[n] == pattern[0] {
 			n++
 		}
 
-		// TODO: does not support all patterns
+		// TODO: does not support all patterns, missing: GYuUrQqLwWecDFgKkSAXx
 		symbol := pattern[:n]
 	TrySymbol:
 		switch symbol {
@@ -354,16 +390,16 @@ func formatDatetimeItem(b []byte, pattern string, locale Locale, t time.Time) ([
 			b = append(b, []byte(locale.MonthSymbol[t.Month()-1].Wide)...)
 		case "MMMMM":
 			b = append(b, []byte(locale.MonthSymbol[t.Month()-1].Narrow)...)
-		case "d":
-			b = t.AppendFormat(b, "2")
-		case "dd":
-			b = t.AppendFormat(b, "02")
 		case "E", "EE", "EEE":
 			b = append(b, []byte(locale.DaySymbol[t.Weekday()].Abbreviated)...)
 		case "EEEE":
 			b = append(b, []byte(locale.DaySymbol[t.Weekday()].Wide)...)
 		case "EEEEE":
 			b = append(b, []byte(locale.DaySymbol[t.Weekday()].Narrow)...)
+		case "d":
+			b = t.AppendFormat(b, "2")
+		case "dd":
+			b = t.AppendFormat(b, "02")
 		case "a", "aa", "aaa":
 			if t.Format("PM") == "PM" {
 				b = append(b, []byte(locale.DayPeriodSymbol["pm"].Abbreviated)...)

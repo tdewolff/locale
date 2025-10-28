@@ -87,7 +87,7 @@ type Metazone struct {
 }
 
 var locales = map[string]Locale{
-    "en": {"#,##0.###", CurrencyFormat{"¤#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, MMMM d, y", "MMMM d, y", "MMM d, y", "M/d/yy"}, CalendarFormat{"h:mm:ss a zzzz", "h:mm:ss a z", "h:mm:ss a", "h:mm a"}, CalendarFormat{"{1} 'at' {0}", "{1} 'at' {0}", "{1}, {0}", "{1}, {0}"}, map[string]map[string]string{
+    "en": {"#,##0.###", CurrencyFormat{"¤#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, MMMM d, y", "MMMM d, y", "MMM d, y", "M/d/yy"}, CalendarFormat{"h:mm:ss a zzzz", "h:mm:ss a z", "h:mm:ss a", "h:mm a"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1}, {0}", "{1}, {0}"}, map[string]map[string]string{
         "": {
             "": "{0} – {1}",
         },
@@ -1149,7 +1149,7 @@ var locales = map[string]Locale{
         "ZW": "Zimbabwe",
         "ZZ": "Unknown Region",
     }},
-    "es": {"#,##0.###", CurrencyFormat{"#,##0.00 ¤", "#,##0.00", "#,##0.00 ¤"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "d MMM y", "d/M/yy"}, CalendarFormat{"H:mm:ss (zzzz)", "H:mm:ss z", "H:mm:ss", "H:mm"}, CalendarFormat{"{1} {0}", "{1} {0}", "{1} {0}", "{1} {0}"}, map[string]map[string]string{
+    "es": {"#,##0.###", CurrencyFormat{"#,##0.00 ¤", "#,##0.00", "#,##0.00 ¤"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "d MMM y", "d/M/yy"}, CalendarFormat{"H:mm:ss (zzzz)", "H:mm:ss z", "H:mm:ss", "H:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1}, {0}", "{1}, {0}"}, map[string]map[string]string{
         "": {
             "": "{0} – {1}",
         },
@@ -2309,7 +2309,7 @@ var locales = map[string]Locale{
         "ZW": "Zimbabue",
         "ZZ": "Región desconocida",
     }},
-    "es_419": {"#,##0.###", CurrencyFormat{"¤#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "d MMM y", "d/M/yy"}, CalendarFormat{"h:mm:ss a zzzz", "h:mm:ss a z", "h:mm:ss a", "h:mm a"}, CalendarFormat{"{1} {0}", "{1} {0}", "{1} {0}", "{1} {0}"}, map[string]map[string]string{
+    "es_419": {"#,##0.###", CurrencyFormat{"¤#,##0.00", "#,##0.00", "¤ #,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "d MMM y", "d/M/yy"}, CalendarFormat{"h:mm:ss a zzzz", "h:mm:ss a z", "h:mm:ss a", "h:mm a"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1}, {0}", "{1}, {0}"}, map[string]map[string]string{
         "": {
             "": "{0} – {1}",
         },
@@ -3472,7 +3472,7 @@ var locales = map[string]Locale{
         "ZW": "Zimbabue",
         "ZZ": "Región desconocida",
     }},
-    "es_CL": {"#,##0.###", CurrencyFormat{"¤#,##0.00;¤-#,##0.00", "#,##0.00", "¤ #,##0.00;¤-#,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "dd-MM-y", "dd-MM-yy"}, CalendarFormat{"H:mm:ss zzzz", "H:mm:ss z", "H:mm:ss", "H:mm"}, CalendarFormat{"{1} {0}", "{1} {0}", "{1} {0}", "{1} {0}"}, map[string]map[string]string{
+    "es_CL": {"#,##0.###", CurrencyFormat{"¤#,##0.00;¤-#,##0.00", "#,##0.00", "¤ #,##0.00;¤-#,##0.00"}, CalendarFormat{"EEEE, d 'de' MMMM 'de' y", "d 'de' MMMM 'de' y", "dd-MM-y", "dd-MM-yy"}, CalendarFormat{"H:mm:ss zzzz", "H:mm:ss z", "H:mm:ss", "H:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1}, {0}", "{1}, {0}"}, map[string]map[string]string{
         "": {
             "": "{0} a el {1}",
         },
@@ -4635,7 +4635,7 @@ var locales = map[string]Locale{
         "ZW": "Zimbabue",
         "ZZ": "Región desconocida",
     }},
-    "nl": {"#,##0.###", CurrencyFormat{"¤ #,##0.00;¤ -#,##0.00", "#,##0.00", "¤ #,##0.00;¤ -#,##0.00"}, CalendarFormat{"EEEE d MMMM y", "d MMMM y", "d MMM y", "dd-MM-y"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1} 'om' {0}", "{1} 'om' {0}", "{1} {0}", "{1} {0}"}, map[string]map[string]string{
+    "nl": {"#,##0.###", CurrencyFormat{"¤ #,##0.00;¤ -#,##0.00", "#,##0.00", "¤ #,##0.00;¤ -#,##0.00"}, CalendarFormat{"EEEE d MMMM y", "d MMMM y", "d MMM y", "dd-MM-y"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1}, {0}", "{1}, {0}"}, map[string]map[string]string{
         "": {
             "": "{0} – {1}",
         },
@@ -5734,7 +5734,7 @@ var locales = map[string]Locale{
         "ZW": "Zimbabwe",
         "ZZ": "onbekend gebied",
     }},
-    "nl_NL": {"#,##0.###", CurrencyFormat{"¤ #,##0.00;¤ -#,##0.00", "#,##0.00", "¤ #,##0.00;¤ -#,##0.00"}, CalendarFormat{"EEEE d MMMM y", "d MMMM y", "d MMM y", "dd-MM-y"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1} 'om' {0}", "{1} 'om' {0}", "{1} {0}", "{1} {0}"}, map[string]map[string]string{
+    "nl_NL": {"#,##0.###", CurrencyFormat{"¤ #,##0.00;¤ -#,##0.00", "#,##0.00", "¤ #,##0.00;¤ -#,##0.00"}, CalendarFormat{"EEEE d MMMM y", "d MMMM y", "d MMM y", "dd-MM-y"}, CalendarFormat{"HH:mm:ss zzzz", "HH:mm:ss z", "HH:mm:ss", "HH:mm"}, CalendarFormat{"{1}, {0}", "{1}, {0}", "{1}, {0}", "{1}, {0}"}, map[string]map[string]string{
         "": {
             "": "{0} – {1}",
         },
