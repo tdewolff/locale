@@ -330,7 +330,6 @@ func main() {
 					}
 				}
 				for _, n := range calendar.FindAll("dateTimeFormats/dateTimeFormatLength[type]/dateTimeFormat[!type]/pattern") {
-					fmt.Println(localeName, n, n.Path())
 					if length := n.Parent.Parent.Attr("type"); length == "full" {
 						locale.DatetimeFormat.Full = n.Text
 					} else if length == "long" {
@@ -828,6 +827,12 @@ func (n *XMLNode) ResolveAliases() {
 	for i := 0; i < len(n.Nodes); i++ {
 		child := n.Nodes[i]
 		if child.Text == "↑↑↑" {
+			if child.Matches("/ldml/dates/calendars/calendar/months/monthContext/monthWidth[type!=wide]/month") {
+				if wide, ok := child.Parent.Parent.Find(fmt.Sprintf("monthWidth[type=wide]/month[type=%v]", child.Attr("type"))); ok && wide.Text != "↑↑↑" {
+					child.Text = wide.Text
+					continue
+				}
+			}
 			n.Nodes = append(n.Nodes[:i], n.Nodes[i+1:]...)
 			i--
 		} else if child.Tag == "alias" && child.Attr("source") == "locale" {
