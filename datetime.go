@@ -692,7 +692,7 @@ func layoutToPattern(locale Locale, layout string) string {
 
 func layoutToPatterns(locale Locale, layout string) (string, string, string) {
 	idxSep := len(layout)
-	var datePattern string
+	var datePattern, timePattern string
 	if strings.HasPrefix(layout, DateFull) {
 		datePattern = locale.DateFormat.Full
 		idxSep = len(DateFull)
@@ -705,55 +705,60 @@ func layoutToPatterns(locale Locale, layout string) (string, string, string) {
 	} else if strings.HasPrefix(layout, DateShort) {
 		datePattern = locale.DateFormat.Short
 		idxSep = len(DateShort)
+	} else {
+		pattern := layoutToPattern(locale, layout)
+		if firstTime := strings.IndexAny(pattern, "abBhHKkjJCmsSAzZOvVXx"); firstTime != -1 {
+			if lastDate := strings.LastIndexAny(pattern[:firstTime], "GyYuUrQqMLlwWdDFgEec"); lastDate != -1 {
+				datePattern = pattern[:lastDate+1]
+			} else {
+				datePattern = pattern[:firstTime]
+			}
+			timePattern = pattern[firstTime:]
+		} else {
+			datePattern = pattern
+		}
 	}
 
-	var timePattern string
 	if idxSep < len(layout) {
-		idxTime := idxSep
+		// found preset date format, now find time format
 		if strings.HasPrefix(layout[idxSep:], " at ") {
-			idxTime += 4
+			idxSep += 4
 		} else if strings.HasPrefix(layout[idxSep:], ", ") {
-			idxTime += 2
+			idxSep += 2
 		} else if strings.HasPrefix(layout[idxSep:], " ") {
-			idxTime += 1
+			idxSep += 1
 		}
 
-		if idxTime == idxSep {
-			datePattern = layoutToPattern(locale, layout)
-		} else {
-			switch layout[idxTime:] {
-			case TimeFull:
-				timePattern = locale.TimeFormat.Full
-			case TimeLong:
-				timePattern = locale.TimeFormat.Long
-			case TimeMedium:
-				timePattern = locale.TimeFormat.Medium
-			case TimeShort:
-				timePattern = locale.TimeFormat.Short
-			default:
-				timePattern = layoutToPattern(locale, layout[idxTime:])
-			}
+		switch layout[idxSep:] {
+		case TimeFull:
+			timePattern = locale.TimeFormat.Full
+		case TimeLong:
+			timePattern = locale.TimeFormat.Long
+		case TimeMedium:
+			timePattern = locale.TimeFormat.Medium
+		case TimeShort:
+			timePattern = locale.TimeFormat.Short
+		default:
+			timePattern = layoutToPattern(locale, layout[idxSep:])
 		}
 	}
 
 	var datetimePattern string
 	if datePattern != "" && timePattern != "" {
 		switch layout[:idxSep] {
-		case DateFull:
-			datetimePattern = locale.DatetimeFormat.Full
 		case DateLong:
 			datetimePattern = locale.DatetimeFormat.Long
 		case DateMedium:
 			datetimePattern = locale.DatetimeFormat.Medium
 		case DateShort:
 			datetimePattern = locale.DatetimeFormat.Short
+		default:
+			datetimePattern = locale.DatetimeFormat.Full
 		}
 	} else if datePattern != "" {
 		datetimePattern = "{1}"
 	} else if timePattern != "" {
 		datetimePattern = "{0}"
-	} else {
-		datetimePattern = layoutToPattern(locale, layout)
 	}
 	return datetimePattern, datePattern, timePattern
 }
