@@ -713,7 +713,7 @@ func layoutToPatterns(locale Locale, layout string) (string, string, string) {
 			} else {
 				datePattern = pattern[:firstTime]
 			}
-			timePattern = pattern[firstTime:]
+			idxSep = firstTime
 		} else {
 			datePattern = pattern
 		}
