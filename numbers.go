@@ -29,13 +29,16 @@ func (f DecimalFormatter) Format(state fmt.State, verb rune) {
 		num = -num
 	}
 
+	dec := 6
+	if precision, ok := state.Precision(); ok {
+		dec = precision
+	}
 	for i := 0; i < len(pattern); {
 		r, n := utf8.DecodeRuneInString(pattern[i:])
 		switch r {
 		case '0', '#':
 			j := i + 1
 			group, decimal := -1, -1
-			lastDecimal := -1
 			for j < len(pattern) {
 				switch pattern[j] {
 				case '.':
@@ -43,27 +46,18 @@ func (f DecimalFormatter) Format(state fmt.State, verb rune) {
 						break
 					}
 					decimal = j
-					lastDecimal = j
 				case ',':
 					if decimal != -1 {
 						break
 					}
 					group = j
-				case '0':
-					if decimal != -1 {
-						lastDecimal = j
-					}
 				}
 				j++
 			}
 
-			dec := 0
 			groupSize := 3
 			if decimal != -1 && group != -1 {
 				groupSize = decimal - group
-				if lastDecimal != -1 {
-					dec = lastDecimal - decimal
-				}
 			}
 			amount := roundToInt64(num, dec)
 			b = strconv.AppendNumber(b, amount, dec, groupSize, locale.GroupSymbol, locale.DecimalSymbol)
@@ -85,4 +79,16 @@ func (f DecimalFormatter) Format(state fmt.State, verb rune) {
 		}
 		i += n
 	}
+	if width, ok := state.Width(); ok && len(b) < width {
+		c := byte(' ')
+		if state.Flag('0') {
+			c = '0'
+		}
+		pad := make([]byte, width-len(b))
+		for i := range pad {
+			pad[i] = c
+		}
+		state.Write(pad)
+	}
+	state.Write(b)
 }

@@ -4,6 +4,7 @@ package locale
 
 import (
 	"reflect"
+	"strings"
 	"time"
 
 	"golang.org/x/text/currency"
@@ -20,6 +21,10 @@ type Printer struct {
 
 var _ = reflect.TypeOf(Printer{}) // no garble
 
+type Translator interface {
+	Translate(*Printer) string
+}
+
 func NewPrinter(t language.Tag, loc *time.Location) *Printer {
 	return &Printer{
 		Printer:     message.NewPrinter(t),
@@ -32,13 +37,14 @@ func (p *Printer) T(a ...any) string {
 	if len(a) == 0 {
 		return ""
 	} else if s, ok := a[0].(string); ok {
-		if len(a) == 2 {
+		if len(a) == 1 {
+			return p.Sprintf(strings.ReplaceAll(s, "%", "%%")) // TODO: why?
+		} else if len(a) == 2 {
 			if A, ok := a[1].([]any); ok {
 				// allow passing array of arguments instead of variadic arguments
-				return p.Sprintf(s, A...)
+				a = append([]any{a[0]}, A...)
 			}
 		}
-		return p.Sprintf(s, a[1:]...)
 	} else if len(a) == 3 {
 		if layout, ok := a[2].(string); ok {
 			if from, ok := a[0].(time.Time); ok {
@@ -70,31 +76,39 @@ func (p *Printer) T(a ...any) string {
 				return p.Sprintf("%v", CurrencyFormatter{v, layout})
 			}
 		}
-	} else if len(a) == 1 {
-		switch v := a[0].(type) {
+	}
+	for i, arg := range a {
+		switch v := arg.(type) {
 		case int:
-			return p.Sprintf("%v", DecimalFormatter{float64(v)})
+			a[i] = DecimalFormatter{float64(v)}
 		case int16:
-			return p.Sprintf("%v", DecimalFormatter{float64(v)})
+			a[i] = DecimalFormatter{float64(v)}
 		case int32:
-			return p.Sprintf("%v", DecimalFormatter{float64(v)})
+			a[i] = DecimalFormatter{float64(v)}
 		case int64:
-			return p.Sprintf("%v", DecimalFormatter{float64(v)})
+			a[i] = DecimalFormatter{float64(v)}
 		case uint:
-			return p.Sprintf("%v", DecimalFormatter{float64(v)})
+			a[i] = DecimalFormatter{float64(v)}
 		case uint16:
-			return p.Sprintf("%v", DecimalFormatter{float64(v)})
+			a[i] = DecimalFormatter{float64(v)}
 		case uint32:
-			return p.Sprintf("%v", DecimalFormatter{float64(v)})
+			a[i] = DecimalFormatter{float64(v)}
 		case uint64:
-			return p.Sprintf("%v", DecimalFormatter{float64(v)})
+			a[i] = DecimalFormatter{float64(v)}
 		case float32:
-			return p.Sprintf("%v", DecimalFormatter{float64(v)})
+			a[i] = DecimalFormatter{float64(v)}
 		case float64:
-			return p.Sprintf("%v", DecimalFormatter{v})
+			a[i] = DecimalFormatter{v}
 		case language.Region:
-			return p.Sprintf("%v", RegionFormatter{v})
+			a[i] = RegionFormatter{v}
+		default:
+			if translator, ok := arg.(Translator); ok {
+				a[i] = translator.Translate(p)
+			}
 		}
+	}
+	if s, ok := a[0].(string); ok {
+		return p.Sprintf(s, a[1:]...)
 	}
 	return p.Sprint(a...)
 }
