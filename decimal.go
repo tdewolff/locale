@@ -81,7 +81,7 @@ func (f DecimalFormatter) Format(state fmt.State, verb rune) {
 
 			groupSize := 3
 			if decimal != -1 && group != -1 {
-				groupSize = decimal - group
+				groupSize = decimal - group - 1
 			}
 			amount := roundToInt64(num, dec)
 			b = strconv.AppendNumber(b, amount, dec, groupSize, locale.GroupSymbol, locale.DecimalSymbol)
