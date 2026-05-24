@@ -7,6 +7,8 @@ import (
 	"golang.org/x/text/language"
 )
 
+var localeMap = map[language.Tag]Locale{}
+
 type Languager interface {
 	Language() language.Tag
 }
@@ -27,9 +29,14 @@ func GetSupportedTag(tag language.Tag) language.Tag {
 }
 
 func GetLocale(tag language.Tag) Locale {
-	tag = GetSupportedTag(tag)
-	loc := strings.ReplaceAll(tag.String(), "-", "_")
-	return locales[loc]
+	locale, ok := localeMap[tag]
+	if !ok {
+		tag = GetSupportedTag(tag)
+		loc := strings.ReplaceAll(tag.String(), "-", "_")
+		locale = locales[loc]
+		localeMap[tag] = locale
+	}
+	return locale
 }
 
 func GetCurrency(unit currency.Unit) CurrencyInfo {

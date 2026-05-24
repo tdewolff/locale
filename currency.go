@@ -189,7 +189,7 @@ func normaliseAmounts(a, b Amount) (int64, int64, bool) {
 	return a.amount, b.amount, true
 }
 
-func (a Amount) Equals(b Amount) bool {
+func (a Amount) Equal(b Amount) bool {
 	A, B, ok := normaliseAmounts(a, b)
 	if !ok {
 		return false
