@@ -428,22 +428,24 @@ func (f DurationIntervalFormatter) Format(state fmt.State, verb rune) {
 		}
 	}
 
-	num := int64(end.Sub(start))
-	unitSize := []int64{3600 * 1e9, 60 * 1e9, 1e9, 1e6, 1e3, 1}
-	unitSymbol := []TimeUnitSymbol{Hour, Minute, Second, Millisecond, Microsecond, Nanosecond}
-	unitType := []string{"hour", "minute", "second", "millisecond", "microsecond", "nanosecond"}
-	for i := 0; num != 0 && i < len(unitSymbol) && minUnit <= unitSymbol[i]; i++ {
-		if _, ok := locale.Unit["duration-"+unitType[i]]; ok && unitSymbol[i] <= maxUnit {
-			n := num / unitSize[i]
-			if (approximate || minUnit == unitSymbol[i]) && unitSize[i]/2 <= num%unitSize[i] {
-				n++
-			}
-			if n != 0 || minUnit == unitSymbol[i] && !written {
-				write(unitType[i], int(n))
-				if approximate {
-					break
+	if !approximate || len(b) == 0 {
+		num := int64(end.Sub(start))
+		unitSize := []int64{3600 * 1e9, 60 * 1e9, 1e9, 1e6, 1e3, 1}
+		unitSymbol := []TimeUnitSymbol{Hour, Minute, Second, Millisecond, Microsecond, Nanosecond}
+		unitType := []string{"hour", "minute", "second", "millisecond", "microsecond", "nanosecond"}
+		for i := 0; num != 0 && i < len(unitSymbol) && minUnit <= unitSymbol[i]; i++ {
+			if _, ok := locale.Unit["duration-"+unitType[i]]; ok && unitSymbol[i] <= maxUnit {
+				n := num / unitSize[i]
+				if (approximate || minUnit == unitSymbol[i]) && unitSize[i]/2 <= num%unitSize[i] {
+					n++
 				}
-				num %= unitSize[i]
+				if n != 0 || minUnit == unitSymbol[i] && !written {
+					write(unitType[i], int(n))
+					if approximate {
+						break
+					}
+					num %= unitSize[i]
+				}
 			}
 		}
 	}
