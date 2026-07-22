@@ -52,9 +52,7 @@ func (p *Printer) T(a ...any) string {
 				case time.Time:
 					return p.Sprintf("%v", IntervalFormatter{from.In(p.Location), v.In(p.Location), layout})
 				case time.Duration:
-					return p.Sprintf("%v", DurationIntervalFormatter{from.In(p.Location), v, layout})
-				case Duration:
-					return p.Sprintf("%v", DurationIntervalFormatter{from.In(p.Location), time.Duration(v), layout})
+					return p.Sprintf("%v", DurationFormatter{FromTimeDuration(from.In(p.Location), v), layout})
 				}
 			}
 		}
@@ -62,14 +60,13 @@ func (p *Printer) T(a ...any) string {
 		if layout, ok := a[1].(string); ok {
 			switch v := a[0].(type) {
 			case time.Time:
-				v = v.In(p.Location)
-				return p.Sprintf("%v", TimeFormatter{v, layout})
+				return p.Sprintf("%v", TimeFormatter{v.In(p.Location), layout})
 			case *time.Location:
 				return p.Sprintf("%v", TimezoneFormatter{v, layout})
 			case time.Duration:
-				return p.Sprintf("%v", DurationFormatter{v, layout})
+				return p.Sprintf("%v", DurationFormatter{FromDuration(v), layout})
 			case Duration:
-				return p.Sprintf("%v", DurationFormatter{time.Duration(v), layout})
+				return p.Sprintf("%v", DurationFormatter{v, layout})
 			case Amount:
 				return p.Sprintf("%v", AmountFormatter{v, layout})
 			case currency.Unit:

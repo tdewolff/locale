@@ -34,26 +34,30 @@ func TestDurationFormatter(t *testing.T) {
 }
 
 func TestDurationIntervalFormatter(t *testing.T) {
+	start := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 	tests := []struct {
 		p      *Printer
 		layout string
-		t      time.Time
 		d      time.Duration
 		str    string
 	}{
-		{en, "second", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 36 * time.Hour, "1 day 12 hours"},
-		{en, "second", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 31 * 24 * time.Hour, "1 month"},
-		{en, "second", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 31*24*time.Hour - time.Second, "4 weeks 2 days 23 hours 59 minutes 59 seconds"},
-		{en, "≈second", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 36 * time.Hour, "2 days"},
-		{en, "≈second", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 31*24*time.Hour - time.Second, "1 month"},
+		{en, "second", 36 * time.Hour, "1 day 12 hours"},
+		{en, "second", 31 * 24 * time.Hour, "1 month"},
+		{en, "second", 31*24*time.Hour - time.Second, "4 weeks 2 days 23 hours 59 minutes 59 seconds"},
+		{en, "second", 365 * 24 * time.Hour, "1 year"},
+		{en, "second[minute,week]", 29 * time.Second, "0 minutes"},
+		{en, "second[minute,week]", 30 * time.Second, "1 minute"},
+		{en, "second[minute,week]", 365 * 24 * time.Hour, "52 weeks"},
+		{en, "≈second", 36 * time.Hour, "2 days"},
+		{en, "≈second", 31*24*time.Hour - time.Second, "1 month"},
 
-		{es, "second", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 36 * time.Hour, "1 día 12 horas"},
-		{es, "second", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 31 * 24 * time.Hour, "1 mes"},
-		{es, "second", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 31*24*time.Hour - time.Second, "4 semanas 2 días 23 horas 59 minutos 59 segundos"},
+		{es, "second", 36 * time.Hour, "1 día 12 horas"},
+		{es, "second", 31 * 24 * time.Hour, "1 mes"},
+		{es, "second", 31*24*time.Hour - time.Second, "4 semanas 2 días 23 horas 59 minutos 59 segundos"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.str, func(t *testing.T) {
-			test.T(t, tt.p.T(tt.t, tt.d, tt.layout), tt.str)
+			test.T(t, tt.p.T(start, tt.d, tt.layout), tt.str)
 		})
 	}
 }
