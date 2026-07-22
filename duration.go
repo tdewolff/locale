@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -171,8 +172,44 @@ type Period struct {
 	Unit TimeUnitSymbol
 }
 
+func (period Period) Empty() bool {
+	return period.Unit == 0
+}
+
 func (period Period) To(unit TimeUnitSymbol) float64 {
 	return float64(period.N) * period.Unit.Factor() / unit.Factor()
+}
+
+func (period Period) Duration() time.Duration {
+	return time.Duration(period.To(Nanosecond) + 0.5)
+}
+
+func (period *Period) Scan(isrc any) error {
+	var s string
+	switch src := isrc.(type) {
+	case []byte:
+		s = string(src)
+	case string:
+		s = src
+	default:
+		return fmt.Errorf("unexpected type for Period: %T", isrc)
+	}
+
+	*period = Period{}
+	if 0 < len(s) {
+		if n, err := strconv.Atoi(s[:len(s)-1]); err != nil {
+			return fmt.Errorf("invalid Period: %s", s)
+		} else if unit, ok := TimeUnitSymbols[s[len(s)-1]]; !ok {
+			return fmt.Errorf("invalid Period: %s", s)
+		} else {
+			*period = Period{int64(n), unit}
+		}
+	}
+	return nil
+}
+
+func (period Period) Value() (driver.Value, error) {
+	return fmt.Sprintf("%d%c", period.N, period.Unit.Symbol()), nil
 }
 
 type Duration []Period

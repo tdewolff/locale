@@ -22,7 +22,7 @@ type Printer struct {
 var _ = reflect.TypeOf(Printer{}) // no garble
 
 type Translator interface {
-	Translate(*Printer) string
+	Translate(*Printer, ...any) string
 }
 
 func NewPrinter(t language.Tag, loc *time.Location) *Printer {
@@ -73,6 +73,9 @@ func (p *Printer) T(a ...any) string {
 				return p.Sprintf("%v", CurrencyFormatter{v, layout})
 			}
 		}
+	}
+	if translator, ok := a[0].(Translator); ok {
+		return translator.Translate(p, a[1:]...)
 	}
 	for i, arg := range a {
 		switch v := arg.(type) {
