@@ -31,9 +31,8 @@ func GetSupportedTag(tag language.Tag) language.Tag {
 func GetLocale(tag language.Tag) Locale {
 	locale, ok := localeMap[tag]
 	if !ok {
-		tag = GetSupportedTag(tag)
-		loc := strings.ReplaceAll(tag.String(), "-", "_")
-		locale = locales[loc]
+		supportedTag := GetSupportedTag(tag)
+		locale = locales[strings.ReplaceAll(supportedTag.String(), "-", "_")]
 		localeMap[tag] = locale
 	}
 	return locale

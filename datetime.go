@@ -56,8 +56,10 @@ type IntervalFormatter struct {
 }
 
 func (f IntervalFormatter) Format(state fmt.State, verb rune) {
+	lang := ""
 	locale := locales["root"]
 	if languager, ok := state.(Languager); ok {
+		lang = languager.Language().String()
 		locale = GetLocale(languager.Language())
 	}
 
@@ -91,7 +93,7 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 	fullPattern := pattern
 	fullPattern = strings.ReplaceAll(fullPattern, "{0}", timePattern)
 	fullPattern = strings.ReplaceAll(fullPattern, "{1}", datePattern)
-	intervalPattern, ok := getIntervalPattern(locale, fullPattern, greatestDifference)
+	intervalPattern, ok := getIntervalPattern(lang, locale, fullPattern, greatestDifference)
 	if !ok {
 		if greatestDifference == "a" || greatestDifference == "H" || greatestDifference == "h" || greatestDifference == "m" || greatestDifference == "s" {
 			// date pattern displayed once with interval in time
@@ -103,7 +105,7 @@ func (f IntervalFormatter) Format(state fmt.State, verb rune) {
 				}
 			}
 
-			timeIntervalPattern, ok := getIntervalPattern(locale, timePattern, greatestDifference)
+			timeIntervalPattern, ok := getIntervalPattern(lang, locale, timePattern, greatestDifference)
 			if ok {
 				intervalPattern = pattern
 				intervalPattern = strings.ReplaceAll(intervalPattern, "{1}", datePattern)
@@ -141,7 +143,7 @@ func makeSkeletonSymbols(pattern string) skeletonSymbols {
 LoopElems:
 	for i, symbolList := range symbolLists {
 		for _, symbol := range symbolList {
-			if idx := strings.Index(pattern, string(symbol)); idx != -1 {
+			if idx := strings.IndexByte(pattern, byte(symbol)); idx != -1 {
 				n := 1
 				for idx+n < len(pattern) && pattern[idx+n] == byte(symbol) {
 					n++
@@ -225,14 +227,24 @@ LoopList:
 	return formats[skeletons[best]], bestSubs
 }
 
-func getIntervalPattern(locale Locale, pattern, greatestDifference string) (string, bool) {
+var intervalPatternCache = map[[3]string]string{}
+
+func getIntervalPattern(lang string, locale Locale, pattern, greatestDifference string) (string, bool) {
+	if intervalPattern, ok := intervalPatternCache[[3]string{lang, pattern, greatestDifference}]; ok {
+		if intervalPattern == "" {
+			return "", false
+		}
+		return intervalPattern, true
+	}
+
 	intervalPatterns, subs := matchSkeletonSymbols(locale.DatetimeIntervalFormat, pattern)
 	if subs == nil {
+		intervalPatternCache[[3]string{lang, pattern, greatestDifference}] = ""
 		return "", false
 	}
 	intervalPattern, ok := intervalPatterns[greatestDifference]
 	if !ok {
-		greatestDifference = "s"
+		greatestDifference := "s"
 		for diff := range intervalPatterns {
 			if diff == "y" {
 				greatestDifference = diff
@@ -248,6 +260,7 @@ func getIntervalPattern(locale Locale, pattern, greatestDifference string) (stri
 	for a, b := range subs {
 		intervalPattern = strings.ReplaceAll(intervalPattern, string(a), b)
 	}
+	intervalPatternCache[[3]string{lang, pattern, greatestDifference}] = intervalPattern
 	return intervalPattern, ok
 }
 
