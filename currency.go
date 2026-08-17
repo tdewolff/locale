@@ -101,6 +101,7 @@ func MustNewAmount(unit currency.Unit, amount int64, dec int) Amount {
 	return a
 }
 
+// NewAmount returns a new currency amount in the given unit and an integer number including 'dec' decimal digits.
 func NewAmount(unit currency.Unit, amount int64, dec int) (Amount, error) {
 	cur := GetCurrency(unit)
 	if cur.Rounding != 0 && cur.Rounding != 1 && cur.Rounding != 10 && cur.Rounding != 100 {

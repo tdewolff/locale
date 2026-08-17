@@ -247,6 +247,9 @@ func main() {
 			for _, n := range xmlLocale.FindAll("/ldml/numbers/currencies/currency[type]/*") {
 				cur := n.Parent.Attr("type")
 				currency := locale.Currency[cur]
+				if cur == "CLF" {
+					currency.Standard = "UF" // NOTE: custom change
+				}
 				if n.Tag == "displayName" {
 					if _, ok := n.Attr2("count"); !ok {
 						currency.Name = n.Text
@@ -419,10 +422,9 @@ func main() {
 			}
 		}
 
-		// custom changes
-		if localeName == "es_CL" {
-			locale.TimeFormat = CalendarFormat{"H:mm:ss zzzz", "H:mm:ss z", "H:mm:ss", "H:mm"}
-		}
+		//if localeName == "es_CL" {
+		//	locale.TimeFormat = CalendarFormat{"H:mm:ss zzzz", "H:mm:ss z", "H:mm:ss", "H:mm"} // NOTE: custom change
+		//}
 		locales[localeName] = locale
 	}
 	for localeName, locale := range locales {
