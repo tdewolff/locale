@@ -164,28 +164,31 @@ func (a Amount) IsPositive() bool {
 	return 0 < a.amount
 }
 
-// normaliseAmounts returns the amounts of both number that are comparable, ie. they have the same unit are are in the same magnitude.
+// normaliseAmounts returns the amounts of both number that are comparable, ie. they have the same unit and magnitude.
 func normaliseAmounts(a, b Amount) (int64, int64, bool) {
 	if a.Unit != b.Unit {
 		return 0, 0, false
 	}
-	for a.digits < b.digits {
-		if 0 < a.amount && MaxAmount/10 < a.amount {
+	if cmp := a.digits - b.digits; cmp < -18 || 18 < cmp {
+		return 0, 0, false
+	} else if cmp < 0 {
+		f := int64Scales[-cmp]
+		if 0 < a.amount && MaxAmount/f < a.amount {
 			return 0, 0, false // overflow
-		} else if a.amount < 0 && a.amount < -MaxAmount/10 {
+		} else if a.amount < 0 && a.amount < -MaxAmount/f {
 			return 0, 0, false // underflow
 		}
-		a.amount *= 10
-		a.digits++
-	}
-	for b.digits < a.digits {
-		if 0 < b.amount && MaxAmount/10 < b.amount {
+		a.amount *= f
+		a.digits = b.digits
+	} else if 0 < cmp {
+		f := int64Scales[cmp]
+		if 0 < b.amount && MaxAmount/f < b.amount {
 			return 0, 0, false // overflow
-		} else if b.amount < 0 && b.amount < -MaxAmount/10 {
+		} else if b.amount < 0 && b.amount < -MaxAmount/f {
 			return 0, 0, false // underflow
 		}
-		b.amount *= 10
-		b.digits++
+		b.amount *= f
+		b.digits = a.digits
 	}
 	return a.amount, b.amount, true
 }
@@ -204,8 +207,10 @@ func (a Amount) Compare(b Amount) int {
 		return 0
 	} else if A < B {
 		return -1
+	} else if B < A {
+		return 1
 	}
-	return 1
+	return 0
 }
 
 // bankersRounding performs bankers rounding, with amount the original amount, and prec the number
@@ -213,8 +218,12 @@ func (a Amount) Compare(b Amount) int {
 // last digit is > 5, the preceding digit is increased, and when the last digit = 5 the preceding
 // digit will increase by 1 only when it is uneven.
 func bankersRounding(amount int64, prec int) int64 {
+	var neg bool
 	if prec <= 0 {
 		return amount
+	} else if amount < 0 {
+		amount = -amount
+		neg = true
 	}
 	shift := int64(0)
 	scale := int64Scales[prec]
@@ -226,6 +235,9 @@ func bankersRounding(amount int64, prec int) int64 {
 		shift = scale
 	}
 	amount += -(amount % scale) + shift
+	if neg {
+		return -amount
+	}
 	return amount
 }
 
@@ -319,17 +331,36 @@ func (a Amount) MustMul(f int) Amount {
 }
 
 func (a Amount) Mul(f int) (Amount, error) {
-	// TODO: is this right?
 	if 1 < f && 0 < a.amount && MaxAmount/int64(f) < a.amount {
 		return Amount{}, ErrOverflow
 	} else if 1 < f && a.amount < 0 && a.amount < -MaxAmount/int64(f) {
 		return Amount{}, ErrUnderflow
 	} else if f < -1 && a.amount < 0 && MaxAmount/int64(-f) < -a.amount {
 		return Amount{}, ErrOverflow
-	} else if f < -1 && 0 < a.amount && -MaxAmount/int64(f) < a.amount {
+	} else if f < -1 && 0 < a.amount && MaxAmount/int64(-f) < a.amount {
 		return Amount{}, ErrUnderflow
 	}
 	a.amount *= int64(f)
+	return a, nil
+}
+
+func (a Amount) MustMulf(f float64) Amount {
+	c, err := a.Mulf(f)
+	if err != nil {
+		panic(err)
+	}
+	return c
+}
+
+func (a Amount) Mulf(f float64) (Amount, error) {
+	incr := 1.0 < f && 0 < a.amount || f < -1.0 && a.amount < 0
+	decr := f < -1.0 && 0 < a.amount || 1.0 < f && a.amount < 0
+	if incr && float64(MaxAmount) < f*float64(a.amount) {
+		return Amount{}, ErrOverflow
+	} else if decr && f*float64(a.amount) < float64(-MaxAmount) {
+		return Amount{}, ErrUnderflow
+	}
+	a.amount = int64(math.RoundToEven(float64(a.amount) * f))
 	return a, nil
 }
 
@@ -343,33 +374,12 @@ func (a Amount) Div(f int) Amount {
 	return a
 }
 
-func (a Amount) DivAmount(b Amount) float64 {
+func (a Amount) Quotient(b Amount) float64 {
 	A, B, ok := normaliseAmounts(a, b)
 	if !ok {
 		return math.NaN()
 	}
 	return float64(A) / float64(B)
-}
-
-func (a Amount) MustMulf(f float64) Amount {
-	c, err := a.Mulf(f)
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
-
-func (a Amount) Mulf(f float64) (Amount, error) {
-	// TODO: is this right?
-	incr := 1.0 < f && 0 < a.amount || f < -1.0 && a.amount < 0
-	decr := f < -1.0 && 0 < a.amount || 1.0 < f && a.amount < 0
-	if incr && float64(MaxAmount) < f*float64(a.amount) {
-		return Amount{}, ErrOverflow
-	} else if decr && f*float64(a.amount) < float64(-MaxAmount) {
-		return Amount{}, ErrUnderflow
-	}
-	a.amount = int64(math.RoundToEven(float64(a.amount) * f))
-	return a, nil
 }
 
 func (a Amount) Float64() float64 {

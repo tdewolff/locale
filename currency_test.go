@@ -10,6 +10,7 @@ import (
 )
 
 var EUR = currency.EUR
+var CLP = currency.MustParseISO("CLP")
 
 func TestNewAmountFromFloat64(t *testing.T) {
 	var tests = []struct {
@@ -68,12 +69,26 @@ func TestAmountOperation(t *testing.T) {
 		{MustNewAmount(EUR, 105, 3).Round(), MustNewAmount(EUR, 100, 3)},
 		{MustNewAmount(EUR, 115, 3).Round(), MustNewAmount(EUR, 120, 3)},
 		{MustNewAmount(EUR, 1000, 3).MustMul(2).Div(3), MustNewAmount(EUR, 66667, 5)},
+		{MustNewAmount(EUR, 105, 3).MustMul(5), MustNewAmount(EUR, 525, 3)},
+		{MustNewAmount(EUR, 105, 3).MustMul(-5), MustNewAmount(EUR, -525, 3)},
+		{MustNewAmount(EUR, -105, 3).MustMul(5), MustNewAmount(EUR, -525, 3)},
+		{MustNewAmount(EUR, -105, 3).MustMul(-5), MustNewAmount(EUR, 525, 3)},
+		{MustNewAmount(EUR, 105, 3).MustMulf(5.0), MustNewAmount(EUR, 525, 3)},
+		{MustNewAmount(EUR, 105, 3).MustMulf(-5.0), MustNewAmount(EUR, -525, 3)},
+		{MustNewAmount(EUR, -105, 3).MustMulf(5.0), MustNewAmount(EUR, -525, 3)},
+		{MustNewAmount(EUR, -105, 3).MustMulf(-5.0), MustNewAmount(EUR, 525, 3)},
+		{MustNewAmount(EUR, 105, 3).Div(5.0), MustNewAmount(EUR, 21, 3)},
+		{MustNewAmount(EUR, 105, 3).Div(-5.0), MustNewAmount(EUR, -21, 3)},
+		{MustNewAmount(EUR, -105, 3).Div(5.0), MustNewAmount(EUR, -21, 3)},
+		{MustNewAmount(EUR, -105, 3).Div(-5.0), MustNewAmount(EUR, 21, 3)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.a.String(), func(t *testing.T) {
 			test.T(t, tt.a, tt.r)
 		})
 	}
+
+	test.T(t, MustNewAmount(CLP, -7933335, 3).MustAdd(MustNewAmount(CLP, 3767540, 3)).String(), "CLP -4,166")
 }
 
 func TestAmountScanValue(t *testing.T) {
