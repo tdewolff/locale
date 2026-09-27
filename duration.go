@@ -65,6 +65,16 @@ func (u TimeUnitSymbol) Factor() float64 {
 	return 0
 }
 
+func (u TimeUnitSymbol) RoundedFactor() float64 {
+	switch u {
+	case Month:
+		return 30 * 24 * 3600e9
+	case Year:
+		return 365 * 24 * 3600e9
+	}
+	return u.Factor()
+}
+
 func (u TimeUnitSymbol) Symbol() byte {
 	switch u {
 	case Nanosecond:
@@ -520,6 +530,7 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 	}
 
 	// write periods
+	// TODO: check availability of translations and ignore unavailable units
 	var b []byte
 	if neg {
 		b = append(b, '-')
@@ -530,8 +541,11 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 			num += d[i].To(d[0].Unit)
 		}
 		unit := d[0].Unit
-		for unit != Century {
-			if factor := d[0].Unit.Factor() / (unit + 1).Factor(); num*factor < 1.0 {
+		for unit != Decade {
+			if factor := d[0].Unit.Factor() / (unit + 1).RoundedFactor(); num*factor < 1.0 {
+				if unit == Fortnight || unit == Quarter {
+					unit--
+				}
 				break
 			}
 			unit++

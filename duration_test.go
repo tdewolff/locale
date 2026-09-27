@@ -25,6 +25,9 @@ func TestDurationFormatter(t *testing.T) {
 		{en, "≈second", 5*time.Hour + 30*time.Minute, "6 hours"},
 		{en, "≈sec", 5*time.Hour + 30*time.Minute, "6 hr"},
 		{en, "≈s", 5*time.Hour + 30*time.Minute, "6h"},
+		{en, "≈second", 744 * time.Hour, "1 month"},
+		{en, "≈second", 720 * time.Hour, "1 month"},
+		{en, "≈second", 696 * time.Hour, "4 weeks"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.str, func(t *testing.T) {

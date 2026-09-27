@@ -69,6 +69,8 @@ func (p *Printer) T(a ...any) string {
 				return p.Sprintf("%v", DurationFormatter{v, layout})
 			case Amount:
 				return p.Sprintf("%v", AmountFormatter{v, layout})
+			case Money:
+				return p.Sprintf("%v", MoneyFormatter{v, layout})
 			case currency.Unit:
 				return p.Sprintf("%v", CurrencyFormatter{v, layout})
 			}
