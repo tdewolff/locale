@@ -1,6 +1,7 @@
 package locale
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -27,7 +28,7 @@ func TestParseAmount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.a, func(t *testing.T) {
-			amount, err := ParseAmount(tt.a, tt.prec)
+			amount, err := ParseAmountPrec(tt.a, tt.prec)
 			test.Error(t, err)
 			test.T(t, amount, tt.r)
 		})
@@ -198,6 +199,8 @@ func TestAmountRoundTo(t *testing.T) {
 
 		{Amount{1600, 2}, 0, "16.00"},
 		{Amount{1600, 2}, -1, "20.00"},
+
+		{Amount{4000, 1}, 2, "400.00"},
 	}
 
 	for _, tt := range tests {
@@ -367,4 +370,20 @@ func TestAmountOperations(t *testing.T) {
 			test.T(t, tt.a, tt.r)
 		})
 	}
+}
+
+func TestAmountJSON(t *testing.T) {
+	type A struct {
+		Amount Amount `json:"amount"`
+	}
+	b, err := json.Marshal(A{MakeAmount(1234, 2)})
+	test.Error(t, err)
+	test.T(t, string(b), ``)
+
+	type B struct {
+		Amount Amount `json:"amount,format:number"`
+	}
+	b, err = json.Marshal(B{MakeAmount(1234, 2)})
+	test.Error(t, err)
+	test.T(t, string(b), ``)
 }

@@ -85,7 +85,7 @@ func TestMoneyRounded(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.a, func(t *testing.T) {
-			amount, err := ParseAmount(tt.a, 5)
+			amount, err := ParseAmountPrec(tt.a, 5)
 			test.Error(t, err)
 			money := Money{EUR, amount, tt.digits, tt.incr}
 			test.T(t, money.RoundedString()[3:], tt.r)

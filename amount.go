@@ -8,6 +8,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/tdewolff/parse/v2/strconv"
 )
 
@@ -46,11 +48,27 @@ type Amount struct {
 	dec int   // decimal digits
 }
 
-func ParseAmount(s string, prec int) (Amount, error) {
-	return ParseAmountBytes([]byte(s), prec)
+func ParseAmount(s string) (Amount, error) {
+	return ParseAmountBytes([]byte(s))
 }
 
-func ParseAmountBytes(b []byte, prec int) (Amount, error) {
+func ParseAmountBytes(b []byte) (Amount, error) {
+	num, dec, n := strconv.ParseNumber(b, ',', '.')
+	if n != len(b) {
+		return InvalidAmount, fmt.Errorf("invalid amount: %v", string(b))
+	}
+	amount := Amount{num, dec}
+	if amount.IsInvalid() {
+		return InvalidAmount, fmt.Errorf("invalid amount: %v", string(b))
+	}
+	return amount, nil
+}
+
+func ParseAmountPrec(s string, prec int) (Amount, error) {
+	return ParseAmountPrecBytes([]byte(s), prec)
+}
+
+func ParseAmountPrecBytes(b []byte, prec int) (Amount, error) {
 	num, dec, n := strconv.ParseNumber(b, ',', '.')
 	if n != len(b) {
 		return InvalidAmount, fmt.Errorf("invalid amount: %v", string(b))
@@ -90,12 +108,20 @@ func (a Amount) IsNegative() bool {
 	return a.num < 0
 }
 
+func (a Amount) Decimals() int {
+	return a.dec
+}
+
 // RoundTo uses banker's rounding towards even integers for the given number of digits after the decimal point. If prec is negative it will round before the decimal point.
 func (a Amount) RoundTo(prec int) Amount {
 	if a.IsInvalid() || a.dec == prec {
 		return a
 	} else if a.dec-prec < 0 {
-		a.num = 0
+		if 18 < prec-a.dec {
+			return InvalidAmount
+		}
+		a.num *= int64Scales[prec-a.dec]
+		a.dec = prec
 		return a
 	} else if 18 < a.dec-prec {
 		if a.dec-prec == 19 && (a.num < -5000000000000000000 || 5000000000000000000 < a.num) {
@@ -266,6 +292,10 @@ func (a Amount) Add(b Amount) Amount {
 	return a
 }
 
+func (a Amount) Addi(i int) Amount {
+	return a.Add(Amount{int64(i), 0})
+}
+
 func (a Amount) Sub(b Amount) Amount {
 	if a.IsInvalid() || b.IsInvalid() {
 		return InvalidAmount
@@ -278,6 +308,10 @@ func (a Amount) Sub(b Amount) Amount {
 	}
 	a.num -= b.num
 	return a
+}
+
+func (a Amount) Subi(i int) Amount {
+	return a.Sub(Amount{int64(i), 0})
 }
 
 func (a Amount) Mul(b Amount) Amount {
@@ -369,6 +403,57 @@ func (a Amount) MinString() string {
 	return string(b)
 }
 
+func (a Amount) BareString() string {
+	if a.IsInvalid() {
+		return "NaN"
+	}
+	a = a.ResetPrecision() // remove superfluous trailing zeros
+	b := strconv.AppendNumber([]byte{}, a.num, a.dec, 0, 0, '.')
+	return string(b)
+}
+
+func (a Amount) MarshalJSON() ([]byte, error) {
+	b := []byte{'"'}
+	b = append(b, a.BareString()...)
+	b = append(b, '"')
+	return b, nil
+}
+
+//func (a Amount) MarshalJSONTo(enc *jsontext.Encoder, opts json.Options) error {
+//	if fmtOpt, ok := json.GetOption(opts, json.WithFormat[ProductCode]); ok {
+//		switch fmtOpt {
+//		case "number":
+//			return enc.WriteValue()
+//		}
+//	}
+//	return enc.WriteValue(jsontext.String(a.BareString()))
+//}
+
+func (a *Amount) UnmarshalJSON(b []byte) error {
+	if 2 < len(b) && b[0] == '"' && b[len(b)-1] == '"' {
+		b = b[1 : len(b)-1]
+	}
+	var err error
+	*a, err = ParseAmountBytes(b)
+	return err
+}
+
+func (a *Amount) UnmarshalTOML(i any) error {
+	return a.Scan(i)
+}
+
+func (a *Amount) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.ScalarNode {
+		return fmt.Errorf("invalid node kind: expected scalar, not %v", node.Kind)
+	}
+	num, dec, n := strconv.ParseNumber([]byte(node.Value), 0, '.')
+	if n != len(node.Value) {
+		return fmt.Errorf("invalid amount: %v", node.Value)
+	}
+	*a = Amount{num, dec}
+	return nil
+}
+
 func (a *Amount) Scan(isrc interface{}) error {
 	var b []byte
 	switch src := isrc.(type) {
@@ -391,7 +476,7 @@ func (a *Amount) Scan(isrc interface{}) error {
 }
 
 func (a Amount) Value() (driver.Value, error) {
-	return a.MinString(), nil
+	return a.BareString(), nil
 }
 
 type NullAmount struct {

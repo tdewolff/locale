@@ -571,7 +571,7 @@ func (f DurationFormatter) Format(state fmt.State, verb rune) {
 		}
 
 		pattern := count.Other
-		if period.N == 1 {
+		if period.N == 1 && count.One != "" {
 			pattern = count.One
 		}
 		pattern = strings.ReplaceAll(pattern, "{0}", fmt.Sprintf("%d", period.N))

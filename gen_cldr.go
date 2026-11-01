@@ -22,7 +22,7 @@ import (
 )
 
 const BasePath = "cldr/"
-const BaseURL = "https://raw.githubusercontent.com/unicode-org/cldr/main/common/"
+const BaseURL = "https://raw.githubusercontent.com/unicode-org/cldr-staging/main/production/common/"
 const CacheDuration = 7 * 24 * time.Hour
 
 var LocaleNames = []string{
@@ -542,7 +542,8 @@ func main() {
 
 type XMLNode struct {
 	Parent *XMLNode
-	Nodes  []*XMLNode
+	//Prev, Next *XMLNode
+	Nodes []*XMLNode
 
 	Tag   string
 	Attrs [][2]string
@@ -565,6 +566,8 @@ func ParseXML(filename string) (*XMLNode, error) {
 		resp, err := http.Get(BaseURL + filename)
 		if err != nil {
 			return nil, err
+		} else if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("bad status code: %v (%v)", resp.StatusCode, BaseURL+filename)
 		}
 		defer resp.Body.Close()
 		if _, err := io.Copy(f, resp.Body); err != nil {
@@ -586,8 +589,6 @@ func ParseXML(filename string) (*XMLNode, error) {
 		if err != nil {
 			if err != io.EOF {
 				return nil, err
-			} else if len(root.Nodes) == 0 {
-				return nil, nil
 			}
 			return root, nil
 		}
@@ -614,6 +615,14 @@ func ParseXML(filename string) (*XMLNode, error) {
 			cur.Text += string(char)
 		} else if _, ok = t.(xml.EndElement); ok {
 			cur.Text = strings.TrimSpace(cur.Text)
+			//for i := range cur.Nodes {
+			//	if 0 < i {
+			//		cur.Nodes[i].Prev = cur.Nodes[i-1]
+			//	}
+			//	if i+1 < len(cur.Nodes) {
+			//		cur.Nodes[i].Next = cur.Nodes[i+1]
+			//	}
+			//}
 			slices.SortFunc(cur.Nodes, func(a, b *XMLNode) int {
 				return a.Compare(b)
 			})
@@ -828,16 +837,7 @@ func (n *XMLNode) FindAll(xpath string) []*XMLNode {
 func (n *XMLNode) ResolveAliases() {
 	for i := 0; i < len(n.Nodes); i++ {
 		child := n.Nodes[i]
-		if child.Text == "↑↑↑" {
-			if child.Matches("/ldml/dates/calendars/calendar/months/monthContext/monthWidth[type!=wide]/month") {
-				if wide, ok := child.Parent.Parent.Find(fmt.Sprintf("monthWidth[type=wide]/month[type=%v]", child.Attr("type"))); ok && wide.Text != "↑↑↑" {
-					child.Text = wide.Text
-					continue
-				}
-			}
-			n.Nodes = append(n.Nodes[:i], n.Nodes[i+1:]...)
-			i--
-		} else if child.Tag == "alias" && child.Attr("source") == "locale" {
+		if child.Tag == "alias" && child.Attr("source") == "locale" {
 			src := n
 			path := child.Attr("path")
 			for 0 < len(path) {

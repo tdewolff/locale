@@ -11,6 +11,7 @@ import (
 
 	"golang.org/x/text/currency"
 	"golang.org/x/text/language"
+	"gopkg.in/yaml.v3"
 
 	"github.com/tdewolff/parse/v2/strconv"
 )
@@ -120,6 +121,26 @@ func MakeMoney(unit currency.Unit, num int64, dec int) (Money, error) {
 		return Money{}, fmt.Errorf("unsupported currency rounding: %v", cur.Rounding)
 	}
 	amount := Amount{num, dec}.ShiftTo(cur.Digits + MoneyPrecision)
+	if amount.IsInvalid() {
+		return Money{}, fmt.Errorf("invalid amount: %#v", amount)
+	}
+	return Money{unit, amount, cur.Digits, cur.Rounding}, nil
+}
+
+func MustMoneyFromAmount(unit currency.Unit, amount Amount) Money {
+	m, err := MoneyFromAmount(unit, amount)
+	if err != nil {
+		panic(err)
+	}
+	return m
+}
+
+func MoneyFromAmount(unit currency.Unit, amount Amount) (Money, error) {
+	cur := GetCurrency(unit)
+	if cur.Rounding != 0 && cur.Rounding != 1 && cur.Rounding != 5 && cur.Rounding != 10 && cur.Rounding != 50 && cur.Rounding != 100 {
+		return Money{}, fmt.Errorf("unsupported currency rounding: %v", cur.Rounding)
+	}
+	amount = amount.ShiftTo(cur.Digits + MoneyPrecision)
 	if amount.IsInvalid() {
 		return Money{}, fmt.Errorf("invalid amount: %#v", amount)
 	}
@@ -380,6 +401,12 @@ func (a Money) bankersRounding() (Amount, error) {
 	return amount, nil
 }
 
+func (a Money) Round() (Money, error) {
+	var err error
+	a.amount, err = a.bankersRounding()
+	return a, err
+}
+
 func (a Money) RoundedAmount() Amount {
 	amount, err := a.bankersRounding()
 	if err != nil {
@@ -396,6 +423,43 @@ func (a Money) RoundedString() string {
 	return a.cur.String() + amount.String()
 }
 
+func (a Money) MarshalJSON() ([]byte, error) {
+	if a.cur == currency.XXX && a.amount.IsZero() {
+		return []byte(`""`), nil
+	}
+
+	b := []byte{'"'}
+	b = append(b, a.cur.String()...)
+	b = append(b, a.amount.BareString()...)
+	b = append(b, '"')
+	return b, nil
+}
+
+func (a *Money) UnmarshalJSON(b []byte) error {
+	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
+		return fmt.Errorf("invalid money: %v", string(b))
+	}
+	var err error
+	*a, err = ParseMoneyBytes(b[1 : len(b)-1])
+	return err
+}
+
+func (a *Money) UnmarshalTOML(i any) error {
+	return a.Scan(i)
+}
+
+func (a *Money) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind != yaml.ScalarNode {
+		return fmt.Errorf("invalid node kind: expected scalar, not %v", node.Kind)
+	}
+	money, err := ParseMoney(node.Value)
+	if err != nil {
+		return err
+	}
+	*a = money
+	return nil
+}
+
 func (a *Money) Scan(isrc interface{}) error {
 	var b []byte
 	switch src := isrc.(type) {
@@ -409,17 +473,22 @@ func (a *Money) Scan(isrc interface{}) error {
 	default:
 		return fmt.Errorf("unexpected type for money: %T", isrc)
 	}
-
-	money, err := ParseMoneyBytes(b)
-	if err != nil {
+	if len(b) == 0 {
+		*a = Money{}
+		return nil
+	} else if money, err := ParseMoneyBytes(b); err != nil {
 		return err
+	} else {
+		*a = money
 	}
-	*a = money
 	return nil
 }
 
 func (a Money) Value() (driver.Value, error) {
-	return a.cur.String() + a.amount.MinString(), nil
+	if a.cur == currency.XXX && a.amount.IsZero() {
+		return "", nil
+	}
+	return a.cur.String() + a.amount.BareString(), nil
 }
 
 type NullMoney struct {
@@ -432,11 +501,14 @@ func (n *NullMoney) Scan(value any) error {
 	if value == nil {
 		n.Money, n.Valid = Money{}, false
 		return nil
+	} else if money, ok := value.(Money); ok {
+		n.Money, n.Valid = money, true
+		return nil
 	} else if s, ok := value.(string); ok && s == "" {
-		n.Money, n.Valid = Money{}, false
+		n.Money, n.Valid = Money{}, true
 		return nil
 	} else if b, ok := value.([]byte); ok && len(b) == 0 {
-		n.Money, n.Valid = Money{}, false
+		n.Money, n.Valid = Money{}, true
 		return nil
 	}
 	n.Valid = true
