@@ -2,6 +2,8 @@ package locale
 
 import (
 	"database/sql/driver"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
 	"log"
 	"math"
@@ -419,15 +421,12 @@ func (a Amount) MarshalJSON() ([]byte, error) {
 	return b, nil
 }
 
-//func (a Amount) MarshalJSONTo(enc *jsontext.Encoder, opts json.Options) error {
-//	if fmtOpt, ok := json.GetOption(opts, json.WithFormat[ProductCode]); ok {
-//		switch fmtOpt {
-//		case "number":
-//			return enc.WriteValue()
-//		}
-//	}
-//	return enc.WriteValue(jsontext.String(a.BareString()))
-//}
+func (a Amount) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if _, ok := json.GetOption(enc.Options(), json.StringifyNumbers); ok {
+		return enc.WriteToken(jsontext.String(a.BareString()))
+	}
+	return enc.WriteValue(jsontext.Value(a.BareString()))
+}
 
 func (a *Amount) UnmarshalJSON(b []byte) error {
 	if 2 < len(b) && b[0] == '"' && b[len(b)-1] == '"' {
@@ -436,6 +435,17 @@ func (a *Amount) UnmarshalJSON(b []byte) error {
 	var err error
 	*a, err = ParseAmountBytes(b)
 	return err
+}
+
+func (a *Amount) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if t, err := dec.ReadToken(); err != nil {
+		return err
+	} else if kind := t.Kind(); kind != jsontext.KindNumber && kind != jsontext.KindString {
+		return fmt.Errorf("expected Amount as string or number, not %v", kind)
+	} else if *a, err = ParseAmount(t.String()); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (a *Amount) UnmarshalTOML(i any) error {

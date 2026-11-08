@@ -1,7 +1,7 @@
 package locale
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"testing"
 
@@ -376,14 +376,24 @@ func TestAmountJSON(t *testing.T) {
 	type A struct {
 		Amount Amount `json:"amount"`
 	}
-	b, err := json.Marshal(A{MakeAmount(1234, 2)})
+	a := A{MakeAmount(1234, 2)}
+	data, err := json.Marshal(a)
 	test.Error(t, err)
-	test.T(t, string(b), ``)
+	test.T(t, string(data), `{"amount":12.34}`)
+	var a2 A
+	err = json.Unmarshal(data, &a2)
+	test.Error(t, err)
+	test.T(t, a2, a)
 
 	type B struct {
-		Amount Amount `json:"amount,format:number"`
+		Amount Amount `json:"amount,string"`
 	}
-	b, err = json.Marshal(B{MakeAmount(1234, 2)})
+	b := B{MakeAmount(1234, 2)}
+	data, err = json.Marshal(b)
 	test.Error(t, err)
-	test.T(t, string(b), ``)
+	test.T(t, string(data), `{"amount":"12.34"}`)
+	var b2 B
+	err = json.Unmarshal(data, &b2)
+	test.Error(t, err)
+	test.T(t, b2, b)
 }

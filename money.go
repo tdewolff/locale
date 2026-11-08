@@ -2,11 +2,11 @@ package locale
 
 import (
 	"database/sql/driver"
+	"encoding/json/jsontext"
 	"fmt"
 	"log"
 	"regexp"
 	"strings"
-	"unicode"
 	"unicode/utf8"
 
 	"golang.org/x/text/currency"
@@ -404,6 +404,7 @@ func (a Money) bankersRounding() (Amount, error) {
 func (a Money) Round() (Money, error) {
 	var err error
 	a.amount, err = a.bankersRounding()
+	a.amount = a.amount.ShiftTo(a.digits + MoneyPrecision)
 	return a, err
 }
 
@@ -435,6 +436,13 @@ func (a Money) MarshalJSON() ([]byte, error) {
 	return b, nil
 }
 
+func (a Money) MarshalJSONTo(enc *jsontext.Encoder) error {
+	if a.cur == currency.XXX && a.amount.IsZero() {
+		return enc.WriteToken(jsontext.String(""))
+	}
+	return enc.WriteToken(jsontext.String(a.cur.String() + a.amount.BareString()))
+}
+
 func (a *Money) UnmarshalJSON(b []byte) error {
 	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
 		return fmt.Errorf("invalid money: %v", string(b))
@@ -442,6 +450,17 @@ func (a *Money) UnmarshalJSON(b []byte) error {
 	var err error
 	*a, err = ParseMoneyBytes(b[1 : len(b)-1])
 	return err
+}
+
+func (a *Money) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	if t, err := dec.ReadToken(); err != nil {
+		return err
+	} else if kind := t.Kind(); kind != jsontext.KindString {
+		return fmt.Errorf("expected Money as string, not %v", kind)
+	} else if *a, err = ParseMoney(t.String()); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (a *Money) UnmarshalTOML(i any) error {
@@ -680,18 +699,10 @@ func (f MoneyFormatter) Format(state fmt.State, verb rune) {
 		pattern = locale.CurrencyFormat.ISO
 	case MoneyStandard:
 		symbol = locale.Currency[unit].Standard
-		hasLetter := false
-		for _, r := range symbol {
-			if unicode.IsLetter(r) {
-				hasLetter = true
-				break
-			}
+		if symbol == "" {
+			symbol = locale.Currency[unit].Narrow
 		}
-		if hasLetter {
-			pattern = locale.CurrencyFormat.ISO
-		} else {
-			pattern = locale.CurrencyFormat.Standard
-		}
+		pattern = locale.CurrencyFormat.Standard
 	case MoneyNarrow:
 		symbol = locale.Currency[unit].Narrow
 		pattern = locale.CurrencyFormat.Standard
